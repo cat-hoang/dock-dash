@@ -110,6 +110,55 @@ Runs 15 Vitest unit tests covering the Pinia stores and `ContainerRow` component
 
 ---
 
+## Docker Deployment
+
+> **How it works:** a single container serves both the API and the compiled Vue frontend on port `3001`.
+
+### Quick start (Linux / macOS)
+
+```bash
+docker compose up -d
+```
+
+Open **http://localhost:3001** — done.
+
+### Quick start (Windows with Docker Desktop)
+
+Docker Desktop on Windows exposes the daemon via a named pipe, not a Unix socket. Edit `docker-compose.yml` and swap the socket volume for the named pipe option (see the comments inside the file), then run:
+
+```bash
+docker compose up -d
+```
+
+Alternatively, enable **"Expose daemon on tcp://localhost:2375"** in Docker Desktop → Settings → General, then uncomment the `DOCKER_HOST` environment variable line in `docker-compose.yml` instead.
+
+### Build the image manually
+
+```bash
+docker build -t dock-dash .
+```
+
+### Persistent data
+
+Settings (compose folder path etc.) are stored in a Docker named volume called `dock-dash-data`, so they survive container restarts and upgrades.
+
+```bash
+# Inspect the volume
+docker volume inspect dock-dash-data
+
+# Remove all data (reset settings)
+docker volume rm dock-dash-data
+```
+
+### Update to latest code
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+---
+
 ## Tech Stack
 
 | Layer     | Technology                          |

@@ -1,6 +1,30 @@
 import Dockerode from 'dockerode'
 
-const docker = new Dockerode()
+/**
+ * Build a Dockerode client respecting the DOCKER_HOST environment variable.
+ * - unix:///var/run/docker.sock  → Unix socket (Linux/macOS default)
+ * - npipe:////./pipe/docker_engine → Windows named pipe
+ * - tcp://host:2375              → TCP (useful inside Docker on Windows)
+ * Unset → Dockerode auto-detects the platform default.
+ */
+function createDockerClient(): Dockerode {
+  const host = process.env.DOCKER_HOST
+  if (host) {
+    if (host.startsWith('tcp://')) {
+      const url = new URL(host)
+      return new Dockerode({ host: url.hostname, port: Number(url.port) || 2375 })
+    }
+    if (host.startsWith('unix://')) {
+      return new Dockerode({ socketPath: host.slice('unix://'.length) })
+    }
+    if (host.startsWith('npipe://')) {
+      return new Dockerode({ socketPath: host.slice('npipe://'.length) })
+    }
+  }
+  return new Dockerode()
+}
+
+const docker = createDockerClient()
 
 export interface PortBinding {
   hostIp: string

@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+packages/backend/data
+packages/frontend/.vite-cache
+*.log
+.env
+.git
+.gitignore
+*.md

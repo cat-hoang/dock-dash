@@ -1,0 +1,37 @@
+services:
+  dock-dash:
+    build: .
+    image: dock-dash:latest
+    container_name: dock-dash
+    ports:
+      - "3001:3001"
+    volumes:
+      # ── Docker socket ──────────────────────────────────────────────────────
+      # Linux / macOS — mount the Unix socket (default, works out of the box)
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Windows (Docker Desktop) — use ONE of the options below instead:
+      #
+      # Option A: Named pipe (recommended for Windows)
+      #   Comment out the line above and uncomment this:
+      #   - type: npipe
+      #     source: \\.\pipe\docker_engine
+      #     target: \\.\pipe\docker_engine
+      #
+      # Option B: TCP (requires "Expose daemon on tcp://localhost:2375" in
+      #   Docker Desktop → Settings → General)
+      #   Comment out the Unix socket line, uncomment the env var below,
+      #   and remove the socket volume entirely.
+
+      # ── Persistent settings ────────────────────────────────────────────────
+      - dock-dash-data:/app/packages/backend/data
+
+    environment:
+      - NODE_ENV=production
+      # Option B (Windows TCP) — uncomment if using TCP instead of socket:
+      # - DOCKER_HOST=tcp://host.docker.internal:2375
+
+    restart: unless-stopped
+
+volumes:
+  dock-dash-data:
