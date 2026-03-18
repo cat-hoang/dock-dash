@@ -47,10 +47,11 @@ if (isProd) {
 }
 
 const port = Number(process.env.PORT ?? 3001)
+const host = process.env.HOST ?? '127.0.0.1'
 const protocol = httpsOptions ? 'https' : 'http'
 try {
-  await app.listen({ port, host: '0.0.0.0' })
-  console.log(`Backend listening on ${protocol}://0.0.0.0:${port}`)
+  await app.listen({ port, host })
+  console.log(`Backend listening on ${protocol}://${host}:${port}`)
 } catch (err) {
   app.log.error(err)
   process.exit(1)

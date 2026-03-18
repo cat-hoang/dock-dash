@@ -39,7 +39,7 @@ services:
     image: dock-dash:latest
     container_name: dock-dash
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
       # ── Persistent settings ────────────────────────────────────────────────
       - dock-dash-data:/app/packages/backend/data
@@ -47,6 +47,7 @@ services:
 
     environment:
       - NODE_ENV=production
+      - HOST=0.0.0.0
       - DOCKER_HOST=tcp://socket-proxy:2375
     depends_on:
       - socket-proxy
