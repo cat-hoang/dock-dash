@@ -1,10 +1,13 @@
+import fs from 'node:fs'
 import Dockerode from 'dockerode'
 
 /**
  * Build a Dockerode client respecting the DOCKER_HOST environment variable.
- * - unix:///var/run/docker.sock  → Unix socket (Linux/macOS default)
+ * - unix:///var/run/docker.sock    → Unix socket (Linux/macOS default)
  * - npipe:////./pipe/docker_engine → Windows named pipe
- * - tcp://host:2375              → TCP (useful inside Docker on Windows)
+ * - tcp://host:2376               → TLS-authenticated TCP (set DOCKER_TLS_CA,
+ *                                    DOCKER_TLS_CERT, DOCKER_TLS_KEY)
+ * - tcp://host:2375               → Plain TCP (internal socket-proxy only)
  * Unset → Dockerode auto-detects the platform default.
  */
 function createDockerClient(): Dockerode {
@@ -12,7 +15,35 @@ function createDockerClient(): Dockerode {
   if (host) {
     if (host.startsWith('tcp://')) {
       const url = new URL(host)
-      return new Dockerode({ host: url.hostname, port: Number(url.port) || 2375 })
+
+      const ca = process.env.DOCKER_TLS_CA
+      const cert = process.env.DOCKER_TLS_CERT
+      const key = process.env.DOCKER_TLS_KEY
+      const hasTls = ca && cert && key
+
+      const port = Number(url.port) || (hasTls ? 2376 : 2375)
+
+      if (hasTls) {
+        return new Dockerode({
+          host: url.hostname,
+          port,
+          ca: fs.readFileSync(ca),
+          cert: fs.readFileSync(cert),
+          key: fs.readFileSync(key),
+        })
+      }
+
+      // Plain TCP — acceptable for container-internal socket-proxy traffic;
+      // warn so operators notice if this is pointed at a real Docker daemon.
+      console.warn(
+        'WARNING: Connecting to Docker over unencrypted TCP (%s:%d). ' +
+          'This is expected for the internal socket-proxy but insecure ' +
+          'for direct daemon access. Set DOCKER_TLS_CA, DOCKER_TLS_CERT, ' +
+          'and DOCKER_TLS_KEY to enable TLS.',
+        url.hostname,
+        port,
+      )
+      return new Dockerode({ host: url.hostname, port })
     }
     if (host.startsWith('unix://')) {
       return new Dockerode({ socketPath: host.slice('unix://'.length) })
