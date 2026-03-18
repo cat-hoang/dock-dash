@@ -1,8 +1,9 @@
 const BASE = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: HeadersInit = options?.body ? { 'Content-Type': 'application/json' } : {}
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   })
   if (!res.ok) {
