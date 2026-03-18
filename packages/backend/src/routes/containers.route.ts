@@ -2,6 +2,16 @@ import type { FastifyInstance } from 'fastify'
 import { listContainers, startContainer, stopContainer, pullAndRecreate } from '../services/docker.service.js'
 
 export async function containersRoute(app: FastifyInstance) {
+  const containerParamSchema = {
+    params: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', pattern: '^[a-f0-9]{12,64}$' },
+      },
+      required: ['id'],
+    },
+  }
+
   app.get('/', async (_req, reply) => {
     try {
       const containers = await listContainers()
@@ -11,7 +21,7 @@ export async function containersRoute(app: FastifyInstance) {
     }
   })
 
-  app.post<{ Params: { id: string } }>('/:id/start', async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/:id/start', { schema: containerParamSchema }, async (req, reply) => {
     try {
       await startContainer(req.params.id)
       return { success: true }
@@ -28,7 +38,7 @@ export async function containersRoute(app: FastifyInstance) {
     }
   })
 
-  app.post<{ Params: { id: string } }>('/:id/stop', async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/:id/stop', { schema: containerParamSchema }, async (req, reply) => {
     try {
       await stopContainer(req.params.id)
       return { success: true }
@@ -45,7 +55,7 @@ export async function containersRoute(app: FastifyInstance) {
     }
   })
 
-  app.post<{ Params: { id: string } }>('/:id/pull-recreate', async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/:id/pull-recreate', { schema: containerParamSchema }, async (req, reply) => {
     try {
       await pullAndRecreate(req.params.id)
       return { success: true }
