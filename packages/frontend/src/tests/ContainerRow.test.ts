@@ -37,6 +37,17 @@ const stoppedContainer: Container = {
   isSelf: false,
 }
 
+const selfContainer: Container = {
+  id: 'fff999',
+  name: 'dock-dash',
+  image: 'dock-dash:latest',
+  status: 'running',
+  state: 'running',
+  ports: [{ hostIp: '0.0.0.0', hostPort: '3001', containerPort: '3001', protocol: 'tcp' }],
+  created: 1700000000,
+  isSelf: true,
+}
+
 function mountRow(container: Container) {
   return mount(ContainerRow, {
     props: { container },
@@ -95,5 +106,46 @@ describe('ContainerRow', () => {
     const stopBtn = wrapper.findAll('button').find((b) => b.text().includes('Stop'))!
     await stopBtn.trigger('click')
     expect(store.stopContainer).toHaveBeenCalledWith('abc123')
+  })
+
+  it('shows Pull & Reload button for non-self container', () => {
+    const wrapper = mountRow(runningContainer)
+    const buttons = wrapper.findAll('button')
+    expect(buttons.some((b) => b.text().includes('Pull'))).toBe(true)
+  })
+
+  it('calls pullRecreateContainer when Pull & Reload is clicked', async () => {
+    const wrapper = mountRow(runningContainer)
+    const store = useContainersStore()
+    store.pullRecreateContainer = vi.fn()
+
+    const pullBtn = wrapper.findAll('button').find((b) => b.text().includes('Pull'))!
+    await pullBtn.trigger('click')
+    expect(store.pullRecreateContainer).toHaveBeenCalledWith('abc123')
+  })
+
+  it('shows Logs button for any container', () => {
+    const wrapper = mountRow(runningContainer)
+    const buttons = wrapper.findAll('button')
+    expect(buttons.some((b) => b.text().includes('Logs'))).toBe(true)
+  })
+
+  it('calls toggleLogs when Logs button is clicked', async () => {
+    const wrapper = mountRow(runningContainer)
+    const store = useContainersStore()
+    store.toggleLogs = vi.fn()
+
+    const logsBtn = wrapper.findAll('button').find((b) => b.text().includes('Logs'))!
+    await logsBtn.trigger('click')
+    expect(store.toggleLogs).toHaveBeenCalledWith('abc123')
+  })
+
+  it('hides Stop and Pull & Reload buttons for self container', () => {
+    const wrapper = mountRow(selfContainer)
+    const buttons = wrapper.findAll('button')
+    expect(buttons.some((b) => b.text().includes('Stop'))).toBe(false)
+    expect(buttons.some((b) => b.text().includes('Pull'))).toBe(false)
+    // Logs should still be visible
+    expect(buttons.some((b) => b.text().includes('Logs'))).toBe(true)
   })
 })
