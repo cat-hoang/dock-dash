@@ -2,7 +2,7 @@
 import type { Container } from '../api'
 import { useContainersStore } from '../stores/containers.store'
 
-const props = defineProps<{ container: Container }>()
+const props = defineProps<{ container: Container; nested?: boolean }>()
 const store = useContainersStore()
 
 const isLoading = () => !!store.actionLoading[props.container.id]
@@ -16,16 +16,15 @@ function formatCreated(ts: number) {
 </script>
 
 <template>
-  <tr>
+  <tr :class="{ 'nested-row': nested }">
     <td>
-      <div class="container-name">{{ container.name }}</div>
-      <div class="container-sub">{{ container.id }}</div>
+      <div class="container-name" :style="nested ? 'padding-left: 24px' : ''">
+        {{ nested ? (container.composeService ?? container.name) : container.name }}
+      </div>
+      <div class="container-sub" :style="nested ? 'padding-left: 24px' : ''">{{ container.id }}</div>
     </td>
     <td>
       <div>{{ container.image }}</div>
-      <div v-if="container.composeProject" class="container-sub">
-        {{ container.composeProject }} / {{ container.composeService }}
-      </div>
     </td>
     <td>
       <span :class="`badge badge-${container.status}`">{{ container.status }}</span>

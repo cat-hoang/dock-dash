@@ -33,6 +33,12 @@ export interface Container {
   isSelf: boolean
 }
 
+export interface ContainerGroup {
+  type: 'compose' | 'standalone'
+  name: string
+  containers: Container[]
+}
+
 export interface Settings {
   composeFolder: string
 }

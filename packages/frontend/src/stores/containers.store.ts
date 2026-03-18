@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api, type Container } from '../api'
+import { api, type Container, type ContainerGroup } from '../api'
 
 export const useContainersStore = defineStore('containers', () => {
   const containers = ref<Container[]>([])
@@ -13,6 +13,41 @@ export const useContainersStore = defineStore('containers', () => {
 
   const running = computed(() => containers.value.filter((c) => c.status === 'running'))
   const stopped = computed(() => containers.value.filter((c) => c.status !== 'running'))
+
+  const expandedGroups = ref<Record<string, boolean>>({})
+
+  const groupedContainers = computed<ContainerGroup[]>(() => {
+    const composeMap = new Map<string, Container[]>()
+    const standalone: Container[] = []
+
+    for (const c of containers.value) {
+      if (c.composeProject) {
+        if (!composeMap.has(c.composeProject)) {
+          composeMap.set(c.composeProject, [])
+        }
+        composeMap.get(c.composeProject)!.push(c)
+      } else {
+        standalone.push(c)
+      }
+    }
+
+    const groups: ContainerGroup[] = []
+    for (const [name, members] of composeMap) {
+      groups.push({ type: 'compose', name, containers: members })
+    }
+    for (const c of standalone) {
+      groups.push({ type: 'standalone', name: c.name, containers: [c] })
+    }
+    return groups
+  })
+
+  function toggleGroup(name: string) {
+    expandedGroups.value[name] = !expandedGroups.value[name]
+  }
+
+  function isGroupExpanded(name: string) {
+    return !!expandedGroups.value[name]
+  }
 
   async function fetchContainers() {
     loading.value = true
@@ -106,5 +141,5 @@ export const useContainersStore = defineStore('containers', () => {
       .join('\n') || `No ${severity.toUpperCase()} lines found.`
   }
 
-  return { containers, loading, error, actionLoading, containerLogs, logsVisible, logsSeverity, running, stopped, fetchContainers, startContainer, stopContainer, pullRecreateContainer, toggleLogs, setLogsSeverity, getFilteredLogs }
+  return { containers, loading, error, actionLoading, containerLogs, logsVisible, logsSeverity, running, stopped, groupedContainers, expandedGroups, toggleGroup, isGroupExpanded, fetchContainers, startContainer, stopContainer, pullRecreateContainer, toggleLogs, setLogsSeverity, getFilteredLogs }
 })

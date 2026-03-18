@@ -8,20 +8,38 @@ const store = useContainersStore()
 const search = ref('')
 const filter = ref<'all' | 'running' | 'stopped'>('all')
 
-const filtered = computed(() => {
-  return store.containers.filter((c) => {
-    const matchesSearch =
-      !search.value ||
-      c.name.toLowerCase().includes(search.value.toLowerCase()) ||
-      c.image.toLowerCase().includes(search.value.toLowerCase()) ||
-      (c.composeProject ?? '').toLowerCase().includes(search.value.toLowerCase())
-    const matchesFilter =
-      filter.value === 'all' ||
-      (filter.value === 'running' && c.status === 'running') ||
-      (filter.value === 'stopped' && c.status !== 'running')
-    return matchesSearch && matchesFilter
-  })
+function matchesFilters(c: { name: string; image: string; composeProject?: string; status: string }) {
+  const matchesSearch =
+    !search.value ||
+    c.name.toLowerCase().includes(search.value.toLowerCase()) ||
+    c.image.toLowerCase().includes(search.value.toLowerCase()) ||
+    (c.composeProject ?? '').toLowerCase().includes(search.value.toLowerCase())
+  const matchesFilter =
+    filter.value === 'all' ||
+    (filter.value === 'running' && c.status === 'running') ||
+    (filter.value === 'stopped' && c.status !== 'running')
+  return matchesSearch && matchesFilter
+}
+
+const filteredGroups = computed(() => {
+  return store.groupedContainers
+    .map((group) => ({
+      ...group,
+      containers: group.containers.filter(matchesFilters),
+    }))
+    .filter((group) => group.containers.length > 0)
 })
+
+function groupRunning(containers: { status: string }[]) {
+  return containers.filter((c) => c.status === 'running').length
+}
+
+function groupStatus(containers: { status: string }[]): string {
+  const running = groupRunning(containers)
+  if (running === containers.length) return 'running'
+  if (running === 0) return 'stopped'
+  return 'partial'
+}
 
 let interval: ReturnType<typeof setInterval>
 
@@ -60,7 +78,7 @@ onUnmounted(() => clearInterval(interval))
       <template v-if="store.loading && !store.containers.length">
         <div class="empty-state"><span class="spinner"></span></div>
       </template>
-      <template v-else-if="!filtered.length">
+      <template v-else-if="!filteredGroups.length">
         <div class="empty-state">
           {{ store.containers.length ? 'No containers match your filter.' : 'No containers found.' }}
         </div>
@@ -77,8 +95,33 @@ onUnmounted(() => clearInterval(interval))
               <th></th>
             </tr>
           </thead>
-          <tbody>
-            <ContainerRow v-for="c in filtered" :key="c.id" :container="c" />
+          <tbody v-for="group in filteredGroups" :key="group.name">
+            <!-- Compose project group header -->
+            <tr
+              v-if="group.type === 'compose'"
+              class="group-header"
+              @click="store.toggleGroup(group.name)"
+            >
+              <td colspan="6">
+                <div class="group-header-content">
+                  <span class="expand-icon">{{ store.isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
+                  <span class="group-name">{{ group.name }}</span>
+                  <span class="group-stats">{{ group.containers.length }} service{{ group.containers.length !== 1 ? 's' : '' }}</span>
+                  <span :class="`badge badge-${groupStatus(group.containers)}`">
+                    {{ groupRunning(group.containers) }}/{{ group.containers.length }} running
+                  </span>
+                </div>
+              </td>
+            </tr>
+            <!-- Container rows: always shown for standalone, toggled for compose -->
+            <template v-if="group.type === 'standalone' || store.isGroupExpanded(group.name)">
+              <ContainerRow
+                v-for="c in group.containers"
+                :key="c.id"
+                :container="c"
+                :nested="group.type === 'compose'"
+              />
+            </template>
           </tbody>
         </table>
       </template>
