@@ -21,9 +21,13 @@ const httpsOptions =
 
 const app = Fastify({ logger: true, ...(httpsOptions && { https: httpsOptions }) })
 
-// In dev the Vite proxy handles CORS; keep it enabled for direct API testing
+// In dev, allow only the Vite dev server origin for CORS
 if (!isProd) {
-  await app.register(cors, { origin: true })
+  const vitePort = process.env.VITE_PORT ?? '5173'
+  await app.register(cors, {
+    origin: [`http://localhost:${vitePort}`, `http://127.0.0.1:${vitePort}`],
+    methods: ['GET', 'POST'],
+  })
 }
 
 await app.register(containersRoute, { prefix: '/api/containers' })
