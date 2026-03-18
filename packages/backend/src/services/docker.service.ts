@@ -86,17 +86,44 @@ function mapStatus(state: string): ContainerInfo['status'] {
   }
 }
 
+/** Deduplicate port bindings – exported for testing. */
+export function deduplicatePorts(rawPorts: PortBinding[]): PortBinding[] {
+  // First pass: collapse entries that share the same hostPort+containerPort+protocol
+  // (e.g. IPv4 and IPv6 duplicates like 0.0.0.0:8080→80 and :::8080→80).
+  const seen = new Map<string, PortBinding>()
+  for (const p of rawPorts) {
+    const key = `${p.hostPort}:${p.containerPort}/${p.protocol}`
+    if (!seen.has(key)) {
+      seen.set(key, p)
+    }
+  }
+
+  // Second pass: drop unmapped entries when a mapped entry exists for the
+  // same containerPort/protocol (Docker returns both EXPOSE and -p entries).
+  const mapped = new Set<string>()
+  for (const p of seen.values()) {
+    if (p.hostPort) {
+      mapped.add(`${p.containerPort}/${p.protocol}`)
+    }
+  }
+  return [...seen.values()].filter(
+    (p) => p.hostPort || !mapped.has(`${p.containerPort}/${p.protocol}`),
+  )
+}
+
 export async function listContainers(): Promise<ContainerInfo[]> {
   const containers = await docker.listContainers({ all: true })
   const selfHostname = (process.env.HOSTNAME ?? '').toLowerCase()
 
   return containers.map((c) => {
-    const ports: PortBinding[] = (c.Ports || []).map((p) => ({
+    const rawPorts: PortBinding[] = (c.Ports || []).map((p) => ({
       hostIp: p.IP ?? '',
       hostPort: p.PublicPort ? String(p.PublicPort) : '',
       containerPort: String(p.PrivatePort),
       protocol: p.Type,
     }))
+
+    const ports = deduplicatePorts(rawPorts)
 
     const labels = c.Labels || {}
     const fullId = c.Id.toLowerCase()

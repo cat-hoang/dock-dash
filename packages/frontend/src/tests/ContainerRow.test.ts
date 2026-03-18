@@ -148,4 +148,65 @@ describe('ContainerRow', () => {
     // Logs should still be visible
     expect(buttons.some((b) => b.text().includes('Logs'))).toBe(true)
   })
+
+  describe('nested mode', () => {
+    function mountNestedRow(container: Container) {
+      return mount(ContainerRow, {
+        props: { container, nested: true },
+        global: { plugins: [createPinia()] },
+      })
+    }
+
+    it('renders compose service name instead of container name when nested', () => {
+      const wrapper = mountNestedRow(runningContainer)
+      const nameEl = wrapper.find('.container-name')
+      expect(nameEl.text()).toBe('web')
+    })
+
+    it('applies nested-row class when nested', () => {
+      const wrapper = mountNestedRow(runningContainer)
+      expect(wrapper.find('tr.nested-row').exists()).toBe(true)
+    })
+
+    it('does not apply nested-row class when not nested', () => {
+      const wrapper = mountRow(runningContainer)
+      expect(wrapper.find('tr.nested-row').exists()).toBe(false)
+    })
+
+    it('renders container name when nested but no composeService', () => {
+      const wrapper = mountNestedRow(stoppedContainer)
+      const nameEl = wrapper.find('.container-name')
+      expect(nameEl.text()).toBe('db')
+    })
+  })
+
+  describe('port rendering', () => {
+    it('renders multiple port tags for different host ports on the same container port', () => {
+      const container: Container = {
+        ...runningContainer,
+        ports: [
+          { hostIp: '0.0.0.0', hostPort: '8080', containerPort: '80', protocol: 'tcp' },
+          { hostIp: '0.0.0.0', hostPort: '8081', containerPort: '80', protocol: 'tcp' },
+        ],
+      }
+      const wrapper = mountRow(container)
+      const portTags = wrapper.findAll('.port-tag')
+      expect(portTags).toHaveLength(2)
+      expect(portTags[0].text()).toContain('8080')
+      expect(portTags[1].text()).toContain('8081')
+    })
+
+    it('renders unmapped port without arrow', () => {
+      const container: Container = {
+        ...runningContainer,
+        ports: [
+          { hostIp: '', hostPort: '', containerPort: '80', protocol: 'tcp' },
+        ],
+      }
+      const wrapper = mountRow(container)
+      const portTag = wrapper.find('.port-tag')
+      expect(portTag.text()).toBe('80/tcp')
+      expect(portTag.classes()).not.toContain('mapped')
+    })
+  })
 })
