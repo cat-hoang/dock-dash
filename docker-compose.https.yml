@@ -1,0 +1,29 @@
+# HTTPS overlay — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+#
+# Before starting, edit the Caddyfile to set your domain or use :443 for
+# automatic self‑signed certs (Caddy's default when no domain is specified).
+
+services:
+  caddy:
+    image: caddy:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - dock-dash
+
+  dock-dash:
+    # Override: remove public port mapping, only expose internally to Caddy
+    ports: !override
+      - "3001"
+
+volumes:
+  caddy_data:
+  caddy_config:

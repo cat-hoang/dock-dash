@@ -1,0 +1,9 @@
+# ── Dock-Dash Reverse Proxy ───────────────────────────────────────────────
+#
+# Replace :443 with your domain (e.g. dashboard.example.com) to enable
+# automatic Let's Encrypt certificates.  Using :443 alone gives you a
+# self‑signed certificate suitable for local / internal use.
+
+:443 {
+    reverse_proxy dock-dash:3001
+}

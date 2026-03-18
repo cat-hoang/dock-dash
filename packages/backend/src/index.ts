@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
@@ -10,7 +11,15 @@ import { composeRoute } from './routes/compose.route.js'
 const isProd = process.env.NODE_ENV === 'production'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const app = Fastify({ logger: true })
+// Optional native TLS — set TLS_CERT_PATH and TLS_KEY_PATH env vars to enable
+const tlsCert = process.env.TLS_CERT_PATH
+const tlsKey = process.env.TLS_KEY_PATH
+const httpsOptions =
+  tlsCert && tlsKey
+    ? { key: fs.readFileSync(tlsKey), cert: fs.readFileSync(tlsCert) }
+    : undefined
+
+const app = Fastify({ logger: true, ...(httpsOptions && { https: httpsOptions }) })
 
 // In dev the Vite proxy handles CORS; keep it enabled for direct API testing
 if (!isProd) {
@@ -34,9 +43,10 @@ if (isProd) {
 }
 
 const port = Number(process.env.PORT ?? 3001)
+const protocol = httpsOptions ? 'https' : 'http'
 try {
   await app.listen({ port, host: '0.0.0.0' })
-  console.log(`Backend listening on http://0.0.0.0:${port}`)
+  console.log(`Backend listening on ${protocol}://0.0.0.0:${port}`)
 } catch (err) {
   app.log.error(err)
   process.exit(1)

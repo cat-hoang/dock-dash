@@ -159,6 +159,37 @@ docker compose up -d
 
 ---
 
+## Enabling HTTPS
+
+### Option A — Caddy Reverse Proxy (Recommended)
+
+A `docker-compose.https.yml` overlay and `Caddyfile` are included. Caddy automatically handles TLS certificates.
+
+1. **Edit `Caddyfile`** — replace `:443` with your domain (e.g. `dashboard.example.com`) for automatic Let's Encrypt certs, or leave it as `:443` for a self-signed cert suitable for local use.
+
+2. **Start with the HTTPS overlay:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+```
+
+The dashboard is now at **https://localhost** (or your domain on port 443).
+
+### Option B — Native TLS (Self-Signed / Custom Certificate)
+
+Set `TLS_CERT_PATH` and `TLS_KEY_PATH` environment variables to enable TLS directly in Fastify without a reverse proxy:
+
+```yaml
+# docker-compose.yml — add under environment:
+environment:
+  - TLS_CERT_PATH=/certs/cert.pem
+  - TLS_KEY_PATH=/certs/key.pem
+volumes:
+  - ./certs:/certs:ro
+```
+
+---
+
 ## Tech Stack
 
 | Layer     | Technology                          |
