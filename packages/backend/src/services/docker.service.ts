@@ -218,3 +218,18 @@ export async function pullAndRecreate(id: string): Promise<void> {
     await newContainer.start()
   }
 }
+
+export async function removeContainer(id: string): Promise<void> {
+  const container = docker.getContainer(id)
+  const info = await container.inspect()
+  if (info.State.Running) {
+    await container.stop()
+  }
+  await container.remove()
+}
+
+export async function removeContainers(ids: string[]): Promise<void> {
+  for (const id of ids) {
+    await removeContainer(id)
+  }
+}

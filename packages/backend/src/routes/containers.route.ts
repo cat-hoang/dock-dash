@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { listContainers, startContainer, stopContainer, pullAndRecreate, getContainerLogs } from '../services/docker.service.js'
+import { listContainers, startContainer, stopContainer, pullAndRecreate, getContainerLogs, removeContainer, removeContainers } from '../services/docker.service.js'
 
 export async function containersRoute(app: FastifyInstance) {
   const containerParamSchema = {
@@ -80,6 +80,44 @@ export async function containersRoute(app: FastifyInstance) {
         return reply.status(404).send({ error: 'Container not found' })
       }
       reply.status(500).send({ error: 'Failed to get container logs' })
+    }
+  })
+
+  app.delete<{ Params: { id: string } }>('/:id', { schema: containerParamSchema }, async (req, reply) => {
+    try {
+      await removeContainer(req.params.id)
+      return { success: true }
+    } catch (err: any) {
+      req.log.error({ err, containerId: req.params.id }, 'Failed to remove container')
+      const statusCode = err?.statusCode ?? 500
+      if (statusCode === 404) {
+        return reply.status(404).send({ error: 'Container not found' })
+      }
+      reply.status(500).send({ error: 'Failed to remove container' })
+    }
+  })
+
+  app.post<{ Body: { ids: string[] } }>('/remove-group', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          ids: {
+            type: 'array',
+            items: { type: 'string', pattern: '^[a-f0-9]{12,64}$' },
+            minItems: 1,
+          },
+        },
+        required: ['ids'],
+      },
+    },
+  }, async (req, reply) => {
+    try {
+      await removeContainers(req.body.ids)
+      return { success: true }
+    } catch (err: any) {
+      req.log.error({ err, ids: req.body.ids }, 'Failed to remove container group')
+      reply.status(500).send({ error: 'Failed to remove container group' })
     }
   })
 }

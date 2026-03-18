@@ -11,6 +11,8 @@ vi.mock('../api', () => ({
       stop: vi.fn(),
       pullRecreate: vi.fn(),
       logs: vi.fn(),
+      remove: vi.fn(),
+      removeGroup: vi.fn(),
     },
     settings: {
       get: vi.fn(),
@@ -332,6 +334,108 @@ describe('containersStore', () => {
 
       expect(store.isGroupExpanded('project-a')).toBe(true)
       expect(store.isGroupExpanded('project-b')).toBe(false)
+    })
+  })
+
+  describe('removeContainer', () => {
+    it('removes a container and refreshes', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(mockContainers)
+      vi.mocked(api.containers.remove).mockResolvedValue({ success: true })
+
+      const store = useContainersStore()
+      await store.removeContainer('abc123')
+
+      expect(api.containers.remove).toHaveBeenCalledWith('abc123')
+      expect(api.containers.list).toHaveBeenCalled()
+    })
+
+    it('sets error when removeContainer fails', async () => {
+      vi.mocked(api.containers.remove).mockRejectedValue(new Error('remove failed'))
+
+      const store = useContainersStore()
+      await store.removeContainer('abc123')
+
+      expect(store.error).toBe('remove failed')
+    })
+
+    it('clears actionLoading after removeContainer completes', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(mockContainers)
+      vi.mocked(api.containers.remove).mockResolvedValue({ success: true })
+
+      const store = useContainersStore()
+      await store.removeContainer('abc123')
+
+      expect(store.actionLoading['abc123']).toBeUndefined()
+    })
+  })
+
+  describe('removeGroup', () => {
+    const composeContainers = [
+      {
+        id: 'aaa111',
+        name: 'proj-web-1',
+        image: 'nginx:latest',
+        status: 'running' as const,
+        state: 'running',
+        ports: [],
+        composeProject: 'my-project',
+        composeService: 'web',
+        created: 1700000000,
+        isSelf: false,
+      },
+      {
+        id: 'bbb222',
+        name: 'proj-db-1',
+        image: 'postgres:16',
+        status: 'running' as const,
+        state: 'running',
+        ports: [],
+        composeProject: 'my-project',
+        composeService: 'db',
+        created: 1700000000,
+        isSelf: false,
+      },
+    ]
+
+    it('removes all containers in a group and refreshes', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(composeContainers)
+      vi.mocked(api.containers.removeGroup).mockResolvedValue({ success: true })
+
+      const store = useContainersStore()
+      await store.fetchContainers()
+      await store.removeGroup('my-project')
+
+      expect(api.containers.removeGroup).toHaveBeenCalledWith(['aaa111', 'bbb222'])
+      expect(api.containers.list).toHaveBeenCalledTimes(2)
+    })
+
+    it('sets error when removeGroup fails', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(composeContainers)
+      vi.mocked(api.containers.removeGroup).mockRejectedValue(new Error('group remove failed'))
+
+      const store = useContainersStore()
+      await store.fetchContainers()
+      await store.removeGroup('my-project')
+
+      expect(store.error).toBe('group remove failed')
+    })
+
+    it('does nothing when group not found', async () => {
+      const store = useContainersStore()
+      await store.removeGroup('nonexistent')
+
+      expect(api.containers.removeGroup).not.toHaveBeenCalled()
+    })
+
+    it('clears groupLoading after removeGroup completes', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(composeContainers)
+      vi.mocked(api.containers.removeGroup).mockResolvedValue({ success: true })
+
+      const store = useContainersStore()
+      await store.fetchContainers()
+      await store.removeGroup('my-project')
+
+      expect(store.groupLoading['my-project']).toBeUndefined()
     })
   })
 })

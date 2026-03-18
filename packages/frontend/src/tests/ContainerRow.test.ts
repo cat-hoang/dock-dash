@@ -7,7 +7,7 @@ import type { Container } from '../api'
 
 vi.mock('../api', () => ({
   api: {
-    containers: { list: vi.fn(), start: vi.fn(), stop: vi.fn(), pullRecreate: vi.fn(), logs: vi.fn() },
+    containers: { list: vi.fn(), start: vi.fn(), stop: vi.fn(), pullRecreate: vi.fn(), logs: vi.fn(), remove: vi.fn(), removeGroup: vi.fn() },
     settings: { get: vi.fn(), save: vi.fn() },
     compose: { list: vi.fn() },
   },
@@ -207,6 +207,30 @@ describe('ContainerRow', () => {
       const portTag = wrapper.find('.port-tag')
       expect(portTag.text()).toBe('80/tcp')
       expect(portTag.classes()).not.toContain('mapped')
+    })
+  })
+
+  describe('delete button', () => {
+    it('shows Delete button for non-self container', () => {
+      const wrapper = mountRow(runningContainer)
+      const buttons = wrapper.findAll('button')
+      expect(buttons.some((b) => b.text().includes('Delete'))).toBe(true)
+    })
+
+    it('hides Delete button for self container', () => {
+      const wrapper = mountRow(selfContainer)
+      const buttons = wrapper.findAll('button')
+      expect(buttons.some((b) => b.text().includes('Delete'))).toBe(false)
+    })
+
+    it('calls removeContainer when Delete is clicked', async () => {
+      const wrapper = mountRow(stoppedContainer)
+      const store = useContainersStore()
+      store.removeContainer = vi.fn()
+
+      const deleteBtn = wrapper.findAll('button').find((b) => b.text().includes('Delete'))!
+      await deleteBtn.trigger('click')
+      expect(store.removeContainer).toHaveBeenCalledWith('def456')
     })
   })
 })

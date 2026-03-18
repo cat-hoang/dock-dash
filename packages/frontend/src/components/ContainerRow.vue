@@ -81,6 +81,15 @@ function formatCreated(ts: number) {
           <span v-if="isLoading()" class="spinner"></span>
           {{ showLogs() ? 'Hide Logs' : 'Logs' }}
         </button>
+        <button
+          v-if="!container.isSelf"
+          class="btn btn-sm btn-red"
+          :disabled="isLoading()"
+          @click="store.removeContainer(container.id)"
+        >
+          <span v-if="isLoading()" class="spinner"></span>
+          Delete
+        </button>
       </div>
     </td>
   </tr>
