@@ -126,6 +126,30 @@ export async function stopContainer(id: string): Promise<void> {
   await container.stop()
 }
 
+export async function getContainerLogs(id: string, tail: number = 50): Promise<string> {
+  const container = docker.getContainer(id)
+  const logs = await container.logs({
+    stdout: true,
+    stderr: true,
+    tail,
+    timestamps: true,
+  })
+  // Dockerode may return a Buffer or string; strip Docker stream headers (8-byte prefix per frame)
+  const raw = typeof logs === 'string' ? logs : logs.toString('utf-8')
+  return raw
+    .split('\n')
+    .map((line: string) => {
+      // Docker multiplexed stream: first 8 bytes are header per frame
+      // If the line has non-printable chars in the first 8 bytes, strip them
+      if (line.length > 8 && line.charCodeAt(0) <= 2) {
+        return line.slice(8)
+      }
+      return line
+    })
+    .join('\n')
+    .trim()
+}
+
 export async function pullAndRecreate(id: string): Promise<void> {
   const container = docker.getContainer(id)
   const info = await container.inspect()

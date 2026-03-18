@@ -255,6 +255,24 @@ header h1 span {
   color: var(--blue);
 }
 
+.logs-row td {
+  padding: 0 !important;
+}
+
+.container-logs {
+  margin: 0;
+  padding: 12px 16px;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .empty-state {
   text-align: center;
   padding: 40px;

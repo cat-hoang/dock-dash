@@ -6,6 +6,7 @@ const props = defineProps<{ container: Container }>()
 const store = useContainersStore()
 
 const isLoading = () => !!store.actionLoading[props.container.id]
+const showLogs = () => !!store.logsVisible[props.container.id]
 
 function formatCreated(ts: number) {
   return new Date(ts * 1000).toLocaleDateString()
@@ -71,7 +72,20 @@ function formatCreated(ts: number) {
           <span v-if="isLoading()" class="spinner"></span>
           Pull &amp; Reload
         </button>
+        <button
+          class="btn btn-sm"
+          :disabled="isLoading()"
+          @click="store.toggleLogs(container.id)"
+        >
+          <span v-if="isLoading()" class="spinner"></span>
+          {{ showLogs() ? 'Hide Logs' : 'Logs' }}
+        </button>
       </div>
+    </td>
+  </tr>
+  <tr v-if="showLogs()" class="logs-row">
+    <td colspan="6">
+      <pre class="container-logs">{{ store.containerLogs[container.id] || 'No logs available.' }}</pre>
     </td>
   </tr>
 </template>

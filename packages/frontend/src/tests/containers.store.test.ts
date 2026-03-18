@@ -10,6 +10,7 @@ vi.mock('../api', () => ({
       start: vi.fn(),
       stop: vi.fn(),
       pullRecreate: vi.fn(),
+      logs: vi.fn(),
     },
     settings: {
       get: vi.fn(),

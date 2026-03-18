@@ -49,6 +49,7 @@ export const api = {
     start: (id: string) => request<{ success: boolean }>(`/containers/${id}/start`, { method: 'POST' }),
     stop: (id: string) => request<{ success: boolean }>(`/containers/${id}/stop`, { method: 'POST' }),
     pullRecreate: (id: string) => request<{ success: boolean }>(`/containers/${id}/pull-recreate`, { method: 'POST' }),
+    logs: (id: string) => request<{ logs: string }>(`/containers/${id}/logs`),
   },
   settings: {
     get: () => request<Settings>('/settings'),
