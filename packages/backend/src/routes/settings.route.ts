@@ -6,9 +6,23 @@ export async function settingsRoute(app: FastifyInstance) {
     return getSettings()
   })
 
-  app.post<{ Body: Partial<Settings> }>('/', async (req, reply) => {
-    const current = getSettings()
-    const updated = { ...current, ...req.body }
-    return saveSettings(updated)
-  })
+  app.post<{ Body: Partial<Settings> }>(
+    '/',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            composeFolder: { type: 'string', minLength: 0, maxLength: 512 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
+      const current = getSettings()
+      const updated = { ...current, ...req.body }
+      return saveSettings(updated)
+    },
+  )
 }
