@@ -179,4 +179,34 @@ describe('ContainerRow', () => {
       expect(nameEl.text()).toBe('db')
     })
   })
+
+  describe('port rendering', () => {
+    it('renders multiple port tags for different host ports on the same container port', () => {
+      const container: Container = {
+        ...runningContainer,
+        ports: [
+          { hostIp: '0.0.0.0', hostPort: '8080', containerPort: '80', protocol: 'tcp' },
+          { hostIp: '0.0.0.0', hostPort: '8081', containerPort: '80', protocol: 'tcp' },
+        ],
+      }
+      const wrapper = mountRow(container)
+      const portTags = wrapper.findAll('.port-tag')
+      expect(portTags).toHaveLength(2)
+      expect(portTags[0].text()).toContain('8080')
+      expect(portTags[1].text()).toContain('8081')
+    })
+
+    it('renders unmapped port without arrow', () => {
+      const container: Container = {
+        ...runningContainer,
+        ports: [
+          { hostIp: '', hostPort: '', containerPort: '80', protocol: 'tcp' },
+        ],
+      }
+      const wrapper = mountRow(container)
+      const portTag = wrapper.find('.port-tag')
+      expect(portTag.text()).toBe('80/tcp')
+      expect(portTag.classes()).not.toContain('mapped')
+    })
+  })
 })

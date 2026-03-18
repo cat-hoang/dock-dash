@@ -33,8 +33,8 @@ function formatCreated(ts: number) {
       <div class="port-list">
         <template v-if="container.ports.length">
           <span
-            v-for="p in container.ports"
-            :key="`${p.containerPort}${p.protocol}`"
+            v-for="(p, idx) in container.ports"
+            :key="`${p.hostIp}:${p.hostPort}:${p.containerPort}/${p.protocol}:${idx}`"
             :class="['port-tag', p.hostPort ? 'mapped' : '']"
           >
             <template v-if="p.hostPort">{{ p.hostPort }}→</template>{{ p.containerPort }}/{{ p.protocol }}
