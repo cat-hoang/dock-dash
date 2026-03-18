@@ -1,14 +1,23 @@
 services:
-  dock-dash:
-    build: .
-    image: dock-dash:latest
-    container_name: dock-dash
-    ports:
-      - "3001:3001"
+  # ── Docker Socket Proxy (SEC-002) ────────────────────────────────────────
+  # Filters Docker API access so the app can only list, start, and stop
+  # containers — not create privileged ones or access host filesystems.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: dock-dash-socket-proxy
+    environment:
+      CONTAINERS: 1  # allow listing & inspecting containers
+      POST: 1        # allow start/stop actions
+      NETWORKS: 0
+      SERVICES: 0
+      VOLUMES: 0
+      IMAGES: 0
+      BUILD: 0
+      SWARM: 0
+      NODES: 0
+      EXEC: 0
     volumes:
-      # ── Docker socket ──────────────────────────────────────────────────────
-      # Linux / macOS — mount the Unix socket (default, works out of the box)
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
       # Windows (Docker Desktop) — use ONE of the options below instead:
       #
@@ -16,22 +25,38 @@ services:
       #   Comment out the line above and uncomment this:
       #   - type: npipe
       #     source: \\.\pipe\docker_engine
-      #     target: \\.\pipe\docker_engine
+      #     target: /var/run/docker.sock
       #
-      # Option B: TCP (requires "Expose daemon on tcp://localhost:2375" in
-      #   Docker Desktop → Settings → General)
-      #   Comment out the Unix socket line, uncomment the env var below,
-      #   and remove the socket volume entirely.
+      # Option B: TCP — see dock-dash environment section below.
+      #   Remove all volumes from this service and set
+      #   DOCKER_HOST on dock-dash directly instead of using the proxy.
+    networks:
+      - socket-proxy-net
+    restart: unless-stopped
 
+  dock-dash:
+    build: .
+    image: dock-dash:latest
+    container_name: dock-dash
+    ports:
+      - "3001:3001"
+    volumes:
       # ── Persistent settings ────────────────────────────────────────────────
       - dock-dash-data:/app/packages/backend/data
+      # No docker.sock mount — access goes through socket-proxy
 
     environment:
       - NODE_ENV=production
-      # Option B (Windows TCP) — uncomment if using TCP instead of socket:
-      # - DOCKER_HOST=tcp://host.docker.internal:2375
-
+      - DOCKER_HOST=tcp://socket-proxy:2375
+    depends_on:
+      - socket-proxy
+    networks:
+      - socket-proxy-net
     restart: unless-stopped
+
+networks:
+  socket-proxy-net:
+    driver: bridge
 
 volumes:
   dock-dash-data:

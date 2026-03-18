@@ -18,11 +18,20 @@ services:
       - caddy_config:/config
     depends_on:
       - dock-dash
+    networks:
+      - frontend-net
 
   dock-dash:
     # Override: remove public port mapping, only expose internally to Caddy
     ports: !override
       - "3001"
+    networks:
+      - socket-proxy-net
+      - frontend-net
+
+networks:
+  frontend-net:
+    driver: bridge
 
 volumes:
   caddy_data:

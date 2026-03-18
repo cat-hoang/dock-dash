@@ -41,6 +41,12 @@ COPY --from=backend-build  /app/packages/backend/dist  ./packages/backend/dist
 # Built frontend (served as static files by the backend)
 COPY --from=frontend-build /app/packages/frontend/dist ./packages/frontend/dist
 
+# Run as non-root user (SEC-002)
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /app/packages/backend/data \
+    && chown -R appuser:appgroup /app/packages/backend/data
+USER appuser
+
 ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001
