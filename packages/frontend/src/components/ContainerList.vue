@@ -110,6 +110,14 @@ onUnmounted(() => clearInterval(interval))
                   <span :class="`badge badge-${groupStatus(group.containers)}`">
                     {{ groupRunning(group.containers) }}/{{ group.containers.length }} running
                   </span>
+                  <button
+                    class="btn btn-sm btn-red"
+                    :disabled="store.groupLoading[group.name]"
+                    @click.stop="store.removeGroup(group.name)"
+                  >
+                    <span v-if="store.groupLoading[group.name]" class="spinner"></span>
+                    Delete Group
+                  </button>
                 </div>
               </td>
             </tr>

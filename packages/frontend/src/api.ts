@@ -56,6 +56,8 @@ export const api = {
     stop: (id: string) => request<{ success: boolean }>(`/containers/${id}/stop`, { method: 'POST' }),
     pullRecreate: (id: string) => request<{ success: boolean }>(`/containers/${id}/pull-recreate`, { method: 'POST' }),
     logs: (id: string) => request<{ logs: string }>(`/containers/${id}/logs`),
+    remove: (id: string) => request<{ success: boolean }>(`/containers/${id}`, { method: 'DELETE' }),
+    removeGroup: (ids: string[]) => request<{ success: boolean }>('/containers/remove-group', { method: 'POST', body: JSON.stringify({ ids }) }),
   },
   settings: {
     get: () => request<Settings>('/settings'),
