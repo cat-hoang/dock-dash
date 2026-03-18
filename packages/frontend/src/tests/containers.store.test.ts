@@ -161,4 +161,52 @@ describe('containersStore', () => {
     expect(store.error).toBe('logs failed')
     expect(store.logsVisible['abc123']).toBeFalsy()
   })
+
+  it('getFilteredLogs returns all lines when severity is "all"', async () => {
+    vi.mocked(api.containers.logs).mockResolvedValue({ logs: 'INFO starting\nERROR boom\nWARN low memory' })
+
+    const store = useContainersStore()
+    await store.toggleLogs('abc123')
+
+    expect(store.getFilteredLogs('abc123')).toBe('INFO starting\nERROR boom\nWARN low memory')
+  })
+
+  it('getFilteredLogs filters to only error lines', async () => {
+    vi.mocked(api.containers.logs).mockResolvedValue({ logs: 'INFO starting\nERROR boom\nWARN low memory' })
+
+    const store = useContainersStore()
+    await store.toggleLogs('abc123')
+    store.setLogsSeverity('abc123', 'error')
+
+    expect(store.getFilteredLogs('abc123')).toBe('ERROR boom')
+  })
+
+  it('getFilteredLogs matches common severity variations', async () => {
+    vi.mocked(api.containers.logs).mockResolvedValue({
+      logs: '[WARNING] disk almost full\nWARN connection slow\nINFO all good',
+    })
+
+    const store = useContainersStore()
+    await store.toggleLogs('abc123')
+    store.setLogsSeverity('abc123', 'warn')
+
+    expect(store.getFilteredLogs('abc123')).toBe('[WARNING] disk almost full\nWARN connection slow')
+  })
+
+  it('getFilteredLogs returns fallback message when no lines match', async () => {
+    vi.mocked(api.containers.logs).mockResolvedValue({ logs: 'INFO starting\nINFO ready' })
+
+    const store = useContainersStore()
+    await store.toggleLogs('abc123')
+    store.setLogsSeverity('abc123', 'error')
+
+    expect(store.getFilteredLogs('abc123')).toBe('No ERROR lines found.')
+  })
+
+  it('setLogsSeverity updates the severity for a container', async () => {
+    const store = useContainersStore()
+    store.setLogsSeverity('abc123', 'warn')
+
+    expect(store.logsSeverity['abc123']).toBe('warn')
+  })
 })

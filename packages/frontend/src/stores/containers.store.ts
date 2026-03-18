@@ -9,6 +9,7 @@ export const useContainersStore = defineStore('containers', () => {
   const actionLoading = ref<Record<string, boolean>>({})
   const containerLogs = ref<Record<string, string>>({})
   const logsVisible = ref<Record<string, boolean>>({})
+  const logsSeverity = ref<Record<string, string>>({})
 
   const running = computed(() => containers.value.filter((c) => c.status === 'running'))
   const stopped = computed(() => containers.value.filter((c) => c.status !== 'running'))
@@ -71,6 +72,9 @@ export const useContainersStore = defineStore('containers', () => {
       const { logs } = await api.containers.logs(id)
       containerLogs.value[id] = logs
       logsVisible.value[id] = true
+      if (!logsSeverity.value[id]) {
+        logsSeverity.value[id] = 'all'
+      }
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -78,5 +82,29 @@ export const useContainersStore = defineStore('containers', () => {
     }
   }
 
-  return { containers, loading, error, actionLoading, containerLogs, logsVisible, running, stopped, fetchContainers, startContainer, stopContainer, pullRecreateContainer, toggleLogs }
+  function setLogsSeverity(id: string, severity: string) {
+    logsSeverity.value[id] = severity
+  }
+
+  function getFilteredLogs(id: string): string {
+    const raw = containerLogs.value[id] ?? ''
+    const severity = logsSeverity.value[id] ?? 'all'
+    if (severity === 'all' || !raw) return raw
+
+    const patterns: Record<string, RegExp> = {
+      error: /\b(error|err|fatal|crit(ical)?|panic)\b/i,
+      warn:  /\b(warn(ing)?|caution)\b/i,
+      info:  /\b(info|notice)\b/i,
+      debug: /\b(debug|trace|verbose)\b/i,
+    }
+    const pattern = patterns[severity]
+    if (!pattern) return raw
+
+    return raw
+      .split('\n')
+      .filter((line) => pattern.test(line))
+      .join('\n') || `No ${severity.toUpperCase()} lines found.`
+  }
+
+  return { containers, loading, error, actionLoading, containerLogs, logsVisible, logsSeverity, running, stopped, fetchContainers, startContainer, stopContainer, pullRecreateContainer, toggleLogs, setLogsSeverity, getFilteredLogs }
 })

@@ -7,6 +7,8 @@ const store = useContainersStore()
 
 const isLoading = () => !!store.actionLoading[props.container.id]
 const showLogs = () => !!store.logsVisible[props.container.id]
+const activeSeverity = () => store.logsSeverity[props.container.id] ?? 'all'
+const severityLevels = ['all', 'error', 'warn', 'info', 'debug'] as const
 
 function formatCreated(ts: number) {
   return new Date(ts * 1000).toLocaleDateString()
@@ -85,7 +87,18 @@ function formatCreated(ts: number) {
   </tr>
   <tr v-if="showLogs()" class="logs-row">
     <td colspan="6">
-      <pre class="container-logs">{{ store.containerLogs[container.id] || 'No logs available.' }}</pre>
+      <div class="logs-toolbar">
+        <span class="logs-toolbar-label">Severity:</span>
+        <button
+          v-for="level in severityLevels"
+          :key="level"
+          :class="['filter-btn', 'filter-btn-sm', activeSeverity() === level && 'active']"
+          @click="store.setLogsSeverity(container.id, level)"
+        >
+          {{ level }}
+        </button>
+      </div>
+      <pre class="container-logs">{{ store.getFilteredLogs(container.id) || 'No logs available.' }}</pre>
     </td>
   </tr>
 </template>
