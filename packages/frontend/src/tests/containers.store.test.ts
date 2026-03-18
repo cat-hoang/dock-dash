@@ -209,4 +209,129 @@ describe('containersStore', () => {
 
     expect(store.logsSeverity['abc123']).toBe('warn')
   })
+
+  describe('groupedContainers', () => {
+    const composeContainers = [
+      {
+        id: 'aaa111',
+        name: 'proj-web-1',
+        image: 'nginx:latest',
+        status: 'running' as const,
+        state: 'running',
+        ports: [],
+        composeProject: 'my-project',
+        composeService: 'web',
+        created: 1700000000,
+        isSelf: false,
+      },
+      {
+        id: 'bbb222',
+        name: 'proj-db-1',
+        image: 'postgres:16',
+        status: 'running' as const,
+        state: 'running',
+        ports: [],
+        composeProject: 'my-project',
+        composeService: 'db',
+        created: 1700000000,
+        isSelf: false,
+      },
+      {
+        id: 'ccc333',
+        name: 'other-redis-1',
+        image: 'redis:7',
+        status: 'stopped' as const,
+        state: 'exited',
+        ports: [],
+        composeProject: 'other-stack',
+        composeService: 'redis',
+        created: 1700000000,
+        isSelf: false,
+      },
+      {
+        id: 'ddd444',
+        name: 'standalone-app',
+        image: 'myapp:latest',
+        status: 'running' as const,
+        state: 'running',
+        ports: [],
+        created: 1700000000,
+        isSelf: false,
+      },
+    ]
+
+    it('groups containers by compose project', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(composeContainers)
+
+      const store = useContainersStore()
+      await store.fetchContainers()
+
+      expect(store.groupedContainers).toHaveLength(3)
+
+      const composeGroup = store.groupedContainers.find((g) => g.name === 'my-project')
+      expect(composeGroup).toBeDefined()
+      expect(composeGroup!.type).toBe('compose')
+      expect(composeGroup!.containers).toHaveLength(2)
+    })
+
+    it('separates standalone containers into individual groups', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(composeContainers)
+
+      const store = useContainersStore()
+      await store.fetchContainers()
+
+      const standaloneGroup = store.groupedContainers.find((g) => g.name === 'standalone-app')
+      expect(standaloneGroup).toBeDefined()
+      expect(standaloneGroup!.type).toBe('standalone')
+      expect(standaloneGroup!.containers).toHaveLength(1)
+    })
+
+    it('creates separate groups for different compose projects', async () => {
+      vi.mocked(api.containers.list).mockResolvedValue(composeContainers)
+
+      const store = useContainersStore()
+      await store.fetchContainers()
+
+      const otherGroup = store.groupedContainers.find((g) => g.name === 'other-stack')
+      expect(otherGroup).toBeDefined()
+      expect(otherGroup!.type).toBe('compose')
+      expect(otherGroup!.containers).toHaveLength(1)
+      expect(otherGroup!.containers[0].composeService).toBe('redis')
+    })
+
+    it('returns empty groups when no containers exist', () => {
+      const store = useContainersStore()
+      expect(store.groupedContainers).toHaveLength(0)
+    })
+  })
+
+  describe('toggleGroup / isGroupExpanded', () => {
+    it('starts collapsed by default', () => {
+      const store = useContainersStore()
+      expect(store.isGroupExpanded('my-project')).toBe(false)
+    })
+
+    it('expands a group when toggled', () => {
+      const store = useContainersStore()
+      store.toggleGroup('my-project')
+      expect(store.isGroupExpanded('my-project')).toBe(true)
+    })
+
+    it('collapses a group when toggled twice', () => {
+      const store = useContainersStore()
+      store.toggleGroup('my-project')
+      store.toggleGroup('my-project')
+      expect(store.isGroupExpanded('my-project')).toBe(false)
+    })
+
+    it('tracks multiple groups independently', () => {
+      const store = useContainersStore()
+      store.toggleGroup('project-a')
+      store.toggleGroup('project-b')
+      store.toggleGroup('project-b')
+
+      expect(store.isGroupExpanded('project-a')).toBe(true)
+      expect(store.isGroupExpanded('project-b')).toBe(false)
+    })
+  })
 })

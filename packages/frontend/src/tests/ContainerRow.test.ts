@@ -148,4 +148,35 @@ describe('ContainerRow', () => {
     // Logs should still be visible
     expect(buttons.some((b) => b.text().includes('Logs'))).toBe(true)
   })
+
+  describe('nested mode', () => {
+    function mountNestedRow(container: Container) {
+      return mount(ContainerRow, {
+        props: { container, nested: true },
+        global: { plugins: [createPinia()] },
+      })
+    }
+
+    it('renders compose service name instead of container name when nested', () => {
+      const wrapper = mountNestedRow(runningContainer)
+      const nameEl = wrapper.find('.container-name')
+      expect(nameEl.text()).toBe('web')
+    })
+
+    it('applies nested-row class when nested', () => {
+      const wrapper = mountNestedRow(runningContainer)
+      expect(wrapper.find('tr.nested-row').exists()).toBe(true)
+    })
+
+    it('does not apply nested-row class when not nested', () => {
+      const wrapper = mountRow(runningContainer)
+      expect(wrapper.find('tr.nested-row').exists()).toBe(false)
+    })
+
+    it('renders container name when nested but no composeService', () => {
+      const wrapper = mountNestedRow(stoppedContainer)
+      const nameEl = wrapper.find('.container-name')
+      expect(nameEl.text()).toBe('db')
+    })
+  })
 })
