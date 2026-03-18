@@ -23,6 +23,7 @@ const runningContainer: Container = {
   composeProject: 'my-project',
   composeService: 'web',
   created: 1700000000,
+  isSelf: false,
 }
 
 const stoppedContainer: Container = {
@@ -33,6 +34,7 @@ const stoppedContainer: Container = {
   state: 'exited',
   ports: [],
   created: 1700000000,
+  isSelf: false,
 }
 
 function mountRow(container: Container) {

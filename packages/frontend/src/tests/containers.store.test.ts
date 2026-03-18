@@ -31,6 +31,7 @@ const mockContainers = [
     composeProject: 'my-project',
     composeService: 'web',
     created: 1700000000,
+    isSelf: false,
   },
   {
     id: 'def456',
@@ -40,6 +41,7 @@ const mockContainers = [
     state: 'exited',
     ports: [],
     created: 1700000000,
+    isSelf: false,
   },
 ]
 
