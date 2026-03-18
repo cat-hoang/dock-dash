@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
+import fs from 'node:fs'
 import { settingsRoute } from '../../src/routes/settings.route.js'
 
 vi.mock('../../src/services/settings.service.js', () => ({
@@ -17,10 +18,13 @@ describe('settings route', () => {
     app = Fastify({ logger: false })
     await app.register(settingsRoute, { prefix: '/api/settings' })
     await app.ready()
+    // Default: make statSync say the path is a valid directory
+    vi.spyOn(fs, 'statSync').mockReturnValue({ isDirectory: () => true } as any)
   })
 
   afterEach(async () => {
     await app.close()
+    delete process.env.COMPOSE_BASE_DIR
   })
 
   // ── GET / ──────────────────────────────────────────────────────
@@ -66,19 +70,16 @@ describe('settings route', () => {
     expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/ok' })
   })
 
-  it('POST / coerces numeric composeFolder to string', async () => {
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '' })
-    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '12345' })
-
+  it('POST / coerces numeric composeFolder to string then rejects (not absolute path)', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/settings',
       payload: { composeFolder: 12345 },
     })
 
-    // Fastify's default Ajv config coerces types
-    expect(res.statusCode).toBe(200)
-    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '12345' })
+    // Fastify coerces to '12345', but it's not an absolute path
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('Invalid composeFolder')
   })
 
   it('POST / rejects composeFolder exceeding max length', async () => {
@@ -103,5 +104,84 @@ describe('settings route', () => {
 
     expect(res.statusCode).toBe(200)
     expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/existing' })
+  })
+
+  // ── Path traversal prevention (SEC-003) ────────────────────────
+
+  it('POST / rejects relative path for composeFolder', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { composeFolder: '../../../etc' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('Invalid composeFolder')
+  })
+
+  it('POST / rejects composeFolder that does not exist', async () => {
+    vi.mocked(fs.statSync).mockImplementation(() => { throw new Error('ENOENT') })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { composeFolder: '/nonexistent/path' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('Invalid composeFolder')
+  })
+
+  it('POST / rejects composeFolder that is a file, not a directory', async () => {
+    vi.mocked(fs.statSync).mockReturnValue({ isDirectory: () => false } as any)
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { composeFolder: '/etc/passwd' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('Invalid composeFolder')
+  })
+
+  it('POST / accepts empty string composeFolder (clears setting)', async () => {
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/old' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '' })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { composeFolder: '' },
+    })
+
+    expect(res.statusCode).toBe(200)
+  })
+
+  it('POST / rejects path outside COMPOSE_BASE_DIR when set', async () => {
+    process.env.COMPOSE_BASE_DIR = '/allowed/base'
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { composeFolder: '/etc/secrets' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('Invalid composeFolder')
+  })
+
+  it('POST / accepts path inside COMPOSE_BASE_DIR', async () => {
+    process.env.COMPOSE_BASE_DIR = '/allowed/base'
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/allowed/base/projects' })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { composeFolder: '/allowed/base/projects' },
+    })
+
+    expect(res.statusCode).toBe(200)
   })
 })

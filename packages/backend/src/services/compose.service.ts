@@ -30,13 +30,12 @@ export async function scanComposeFiles(baseFolder: string): Promise<ComposeFile[
     })
 
     for (const match of matches) {
-      const fullPath = path.join(baseFolder, match)
-      const folder = path.dirname(fullPath)
-      const project = path.basename(folder)
+      const relFolder = path.dirname(match)
+      const project = relFolder === '.' ? path.basename(baseFolder) : path.basename(relFolder)
 
-      // Avoid duplicate projects
-      if (!files.find((f) => f.folder === folder)) {
-        files.push({ project, filePath: fullPath, folder })
+      // Avoid duplicate projects — compare by relative path
+      if (!files.find((f) => f.filePath === match)) {
+        files.push({ project, filePath: match, folder: relFolder === '.' ? '' : relFolder })
       }
     }
   }
