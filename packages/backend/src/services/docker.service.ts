@@ -125,3 +125,45 @@ export async function stopContainer(id: string): Promise<void> {
   const container = docker.getContainer(id)
   await container.stop()
 }
+
+export async function pullAndRecreate(id: string): Promise<void> {
+  const container = docker.getContainer(id)
+  const info = await container.inspect()
+
+  const image = info.Config.Image
+  // Pull latest image
+  await new Promise<void>((resolve, reject) => {
+    docker.pull(image, (err: Error | null, stream: NodeJS.ReadableStream) => {
+      if (err) return reject(err)
+      docker.modem.followProgress(stream, (err: Error | null) => {
+        if (err) return reject(err)
+        resolve()
+      })
+    })
+  })
+
+  const wasRunning = info.State.Running
+
+  // Stop if running
+  if (wasRunning) {
+    await container.stop()
+  }
+
+  // Remove old container
+  await container.remove()
+
+  // Recreate with same config
+  const newContainer = await docker.createContainer({
+    ...info.Config,
+    name: info.Name.replace(/^\//, ''),
+    HostConfig: info.HostConfig,
+    NetworkingConfig: {
+      EndpointsConfig: info.NetworkSettings.Networks,
+    },
+  })
+
+  // Start if it was running before
+  if (wasRunning) {
+    await newContainer.start()
+  }
+}

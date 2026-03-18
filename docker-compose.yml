@@ -7,11 +7,11 @@ services:
     container_name: dock-dash-socket-proxy
     environment:
       CONTAINERS: 1  # allow listing & inspecting containers
-      POST: 1        # allow start/stop actions
+      POST: 1        # allow start/stop/create/pull actions
       NETWORKS: 0
       SERVICES: 0
       VOLUMES: 0
-      IMAGES: 0
+      IMAGES: 1      # allow pulling images
       BUILD: 0
       SWARM: 0
       NODES: 0

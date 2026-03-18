@@ -7,7 +7,7 @@ import type { Container } from '../api'
 
 vi.mock('../api', () => ({
   api: {
-    containers: { list: vi.fn(), start: vi.fn(), stop: vi.fn() },
+    containers: { list: vi.fn(), start: vi.fn(), stop: vi.fn(), pullRecreate: vi.fn() },
     settings: { get: vi.fn(), save: vi.fn() },
     compose: { list: vi.fn() },
   },

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { listContainers, startContainer, stopContainer } from '../services/docker.service.js'
+import { listContainers, startContainer, stopContainer, pullAndRecreate } from '../services/docker.service.js'
 
 export async function containersRoute(app: FastifyInstance) {
   app.get('/', async (_req, reply) => {
@@ -42,6 +42,20 @@ export async function containersRoute(app: FastifyInstance) {
         return reply.status(409).send({ error: 'Container is already stopped' })
       }
       reply.status(500).send({ error: 'Failed to stop container' })
+    }
+  })
+
+  app.post<{ Params: { id: string } }>('/:id/pull-recreate', async (req, reply) => {
+    try {
+      await pullAndRecreate(req.params.id)
+      return { success: true }
+    } catch (err: any) {
+      req.log.error({ err, containerId: req.params.id }, 'Failed to pull and recreate container')
+      const statusCode = err?.statusCode ?? 500
+      if (statusCode === 404) {
+        return reply.status(404).send({ error: 'Container not found' })
+      }
+      reply.status(500).send({ error: 'Failed to pull and recreate container' })
     }
   })
 }

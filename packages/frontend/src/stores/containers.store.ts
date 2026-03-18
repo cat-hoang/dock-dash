@@ -47,5 +47,17 @@ export const useContainersStore = defineStore('containers', () => {
     }
   }
 
-  return { containers, loading, error, actionLoading, running, stopped, fetchContainers, startContainer, stopContainer }
+  async function pullRecreateContainer(id: string) {
+    actionLoading.value[id] = true
+    try {
+      await api.containers.pullRecreate(id)
+      await fetchContainers()
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      delete actionLoading.value[id]
+    }
+  }
+
+  return { containers, loading, error, actionLoading, running, stopped, fetchContainers, startContainer, stopContainer, pullRecreateContainer }
 })

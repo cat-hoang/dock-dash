@@ -62,6 +62,15 @@ function formatCreated(ts: number) {
           <span v-if="isLoading()" class="spinner"></span>
           Stop
         </button>
+        <button
+          v-if="!container.isSelf"
+          class="btn btn-sm btn-blue"
+          :disabled="isLoading()"
+          @click="store.pullRecreateContainer(container.id)"
+        >
+          <span v-if="isLoading()" class="spinner"></span>
+          Pull &amp; Reload
+        </button>
       </div>
     </td>
   </tr>
