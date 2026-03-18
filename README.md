@@ -114,7 +114,76 @@ Runs 15 Vitest unit tests covering the Pinia stores and `ContainerRow` component
 
 > **How it works:** a single container serves both the API and the compiled Vue frontend on port `3001`.
 
-### Quick start (Linux / macOS)
+### Using the public Docker image
+
+A pre-built image is published to Docker Hub on every push to `main`.
+
+**Docker Compose (recommended):**
+
+Create a `docker-compose.yml`:
+
+```yaml
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: dock-dash-socket-proxy
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      IMAGES: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy-net
+    restart: unless-stopped
+
+  dock-dash:
+    image: hchoang/dock-dash:latest
+    container_name: dock-dash
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - dock-dash-data:/app/packages/backend/data
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - DOCKER_HOST=tcp://socket-proxy:2375
+    depends_on:
+      - socket-proxy
+    networks:
+      - socket-proxy-net
+    restart: unless-stopped
+
+networks:
+  socket-proxy-net:
+    driver: bridge
+
+volumes:
+  dock-dash-data:
+```
+
+```bash
+docker compose up -d
+```
+
+**Docker run (quick start):**
+
+```bash
+docker run -d \
+  --name dock-dash \
+  -p 127.0.0.1:3001:3001 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v dock-dash-data:/app/packages/backend/data \
+  hchoang/dock-dash:latest
+```
+
+Open **http://localhost:3001** — done.
+
+> **Note:** The Compose approach with a socket proxy is more secure because it limits which Docker API endpoints the app can access. The `docker run` shortcut mounts the socket directly.
+
+---
+
+### Build from source (Linux / macOS)
 
 ```bash
 docker compose up -d
@@ -122,7 +191,7 @@ docker compose up -d
 
 Open **http://localhost:3001** — done.
 
-### Quick start (Windows with Docker Desktop)
+### Build from source (Windows with Docker Desktop)
 
 Docker Desktop on Windows exposes the daemon via a named pipe, not a Unix socket. Edit `docker-compose.yml` and swap the socket volume for the named pipe option (see the comments inside the file), then run:
 
