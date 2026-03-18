@@ -54,7 +54,7 @@ function formatCreated(ts: number) {
           Start
         </button>
         <button
-          v-if="container.status === 'running'"
+          v-if="container.status === 'running' && !container.isSelf"
           class="btn btn-sm btn-red"
           :disabled="isLoading()"
           @click="store.stopContainer(container.id)"

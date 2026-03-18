@@ -30,6 +30,7 @@ export interface Container {
   composeProject?: string
   composeService?: string
   created: number
+  isSelf: boolean
 }
 
 export interface Settings {

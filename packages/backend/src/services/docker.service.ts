@@ -74,6 +74,7 @@ export interface ContainerInfo {
   composeProject?: string
   composeService?: string
   created: number
+  isSelf: boolean
 }
 
 function mapStatus(state: string): ContainerInfo['status'] {
@@ -87,6 +88,7 @@ function mapStatus(state: string): ContainerInfo['status'] {
 
 export async function listContainers(): Promise<ContainerInfo[]> {
   const containers = await docker.listContainers({ all: true })
+  const selfHostname = (process.env.HOSTNAME ?? '').toLowerCase()
 
   return containers.map((c) => {
     const ports: PortBinding[] = (c.Ports || []).map((p) => ({
@@ -97,6 +99,7 @@ export async function listContainers(): Promise<ContainerInfo[]> {
     }))
 
     const labels = c.Labels || {}
+    const fullId = c.Id.toLowerCase()
 
     return {
       id: c.Id.slice(0, 12),
@@ -108,6 +111,7 @@ export async function listContainers(): Promise<ContainerInfo[]> {
       composeProject: labels['com.docker.compose.project'],
       composeService: labels['com.docker.compose.service'],
       created: c.Created,
+      isSelf: selfHostname !== '' && fullId.startsWith(selfHostname),
     }
   })
 }
