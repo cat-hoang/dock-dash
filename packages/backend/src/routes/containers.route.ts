@@ -16,7 +16,15 @@ export async function containersRoute(app: FastifyInstance) {
       await startContainer(req.params.id)
       return { success: true }
     } catch (err: any) {
-      reply.status(500).send({ error: err?.message ?? 'Failed to start container' })
+      req.log.error({ err, containerId: req.params.id }, 'Failed to start container')
+      const statusCode = err?.statusCode ?? 500
+      if (statusCode === 404) {
+        return reply.status(404).send({ error: 'Container not found' })
+      }
+      if (statusCode === 304 || statusCode === 409) {
+        return reply.status(409).send({ error: 'Container is already running' })
+      }
+      reply.status(500).send({ error: 'Failed to start container' })
     }
   })
 
@@ -25,7 +33,15 @@ export async function containersRoute(app: FastifyInstance) {
       await stopContainer(req.params.id)
       return { success: true }
     } catch (err: any) {
-      reply.status(500).send({ error: err?.message ?? 'Failed to stop container' })
+      req.log.error({ err, containerId: req.params.id }, 'Failed to stop container')
+      const statusCode = err?.statusCode ?? 500
+      if (statusCode === 404) {
+        return reply.status(404).send({ error: 'Container not found' })
+      }
+      if (statusCode === 304 || statusCode === 409) {
+        return reply.status(409).send({ error: 'Container is already stopped' })
+      }
+      reply.status(500).send({ error: 'Failed to stop container' })
     }
   })
 }
