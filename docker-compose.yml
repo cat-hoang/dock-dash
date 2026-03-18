@@ -39,7 +39,7 @@ services:
     image: dock-dash:latest
     container_name: dock-dash
     ports:
-      - "127.0.0.1:3001:3001"
+      - "3001:3001"
     volumes:
       # ── Persistent settings ────────────────────────────────────────────────
       - dock-dash-data:/app/packages/backend/data

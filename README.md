@@ -141,7 +141,7 @@ services:
     image: hchoang/dock-dash:latest
     container_name: dock-dash
     ports:
-      - "127.0.0.1:3001:3001"
+      - "3001:3001"
     volumes:
       - dock-dash-data:/app/packages/backend/data
     environment:
@@ -171,13 +171,13 @@ docker compose up -d
 ```bash
 docker run -d \
   --name dock-dash \
-  -p 127.0.0.1:3001:3001 \
+  -p 3001:3001 \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v dock-dash-data:/app/packages/backend/data \
   hchoang/dock-dash:latest
 ```
 
-Open **http://localhost:3001** — done.
+Open **http://&lt;server-ip&gt;:3001** from any device on your network.
 
 > **Note:** The Compose approach with a socket proxy is more secure because it limits which Docker API endpoints the app can access. The `docker run` shortcut mounts the socket directly.
 
