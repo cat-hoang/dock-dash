@@ -5,6 +5,13 @@ import ContainerRow from '../components/ContainerRow.vue'
 import { useContainersStore } from '../stores/containers.store'
 import type { Container } from '../api'
 
+vi.mock('../components/ContainerTerminal.vue', () => ({
+  default: {
+    name: 'ContainerTerminal',
+    template: '<div class="terminal-stub">terminal</div>',
+  },
+}))
+
 vi.mock('../api', () => ({
   api: {
     containers: { list: vi.fn(), start: vi.fn(), stop: vi.fn(), restart: vi.fn(), pullRecreate: vi.fn(), logs: vi.fn(), remove: vi.fn(), removeGroup: vi.fn() },
@@ -176,6 +183,33 @@ describe('ContainerRow', () => {
       const restartBtn = wrapper.findAll('button').find((b) => b.text().includes('Restart'))!
       await restartBtn.trigger('click')
       expect(store.restartContainer).toHaveBeenCalledWith('abc123')
+    })
+  })
+
+  describe('shell button', () => {
+    it('shows Shell button for running container', () => {
+      const wrapper = mountRow(runningContainer)
+      const buttons = wrapper.findAll('button')
+      expect(buttons.some((b) => b.text().includes('Shell'))).toBe(true)
+    })
+
+    it('hides Shell button for stopped container', () => {
+      const wrapper = mountRow(stoppedContainer)
+      const buttons = wrapper.findAll('button')
+      expect(buttons.some((b) => b.text().includes('Shell'))).toBe(false)
+    })
+
+    it('toggles shell panel visibility', async () => {
+      const wrapper = mountRow(runningContainer)
+      const shellBtn = wrapper.findAll('button').find((b) => b.text().includes('Shell'))!
+
+      await shellBtn.trigger('click')
+      expect(wrapper.text()).toContain('Close Shell')
+      expect(wrapper.find('.terminal-stub').exists()).toBe(true)
+
+      const closeShellBtn = wrapper.findAll('button').find((b) => b.text().includes('Close Shell'))!
+      await closeShellBtn.trigger('click')
+      expect(wrapper.find('.terminal-stub').exists()).toBe(false)
     })
   })
 

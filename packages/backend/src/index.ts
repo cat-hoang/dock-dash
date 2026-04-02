@@ -1,12 +1,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { Server as HttpServer, IncomingMessage } from 'node:http'
+import type { Duplex } from 'node:stream'
+import { WebSocketServer } from 'ws'
+import type WebSocket from 'ws'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import staticPlugin from '@fastify/static'
 import { containersRoute } from './routes/containers.route.js'
 import { settingsRoute } from './routes/settings.route.js'
 import { composeRoute } from './routes/compose.route.js'
+import { startExecStream } from './services/docker.service.js'
 
 const isProd = process.env.NODE_ENV === 'production'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -56,3 +61,66 @@ try {
   app.log.error(err)
   process.exit(1)
 }
+
+// ── WebSocket exec server ─────────────────────────────────────────────────────
+const EXEC_PATH = /^\/api\/containers\/([a-f0-9]{12,64})\/exec$/
+const wss = new WebSocketServer({ noServer: true })
+
+async function handleExecConnection(ws: WebSocket, containerId: string): Promise<void> {
+  let stream: Duplex | undefined
+  try {
+    const result = await startExecStream(containerId)
+    stream = result.stream
+    const exec = result.exec
+
+    stream.on('data', (chunk: Buffer) => {
+      if (ws.readyState === 1 /* OPEN */) ws.send(chunk)
+    })
+    stream.on('end', () => ws.close())
+    stream.on('error', () => ws.close())
+
+    ws.on('message', (data: Buffer | string) => {
+      try {
+        const parsed = JSON.parse(typeof data === 'string' ? data : data.toString())
+        if (parsed.type === 'resize') {
+          exec.resize({ h: parsed.rows ?? 24, w: parsed.cols ?? 80 }).catch(() => {})
+          return
+        }
+      } catch { /* not JSON → raw stdin */ }
+      stream?.write(data)
+    })
+
+    ws.on('close', () => stream?.destroy())
+    ws.on('error', () => stream?.destroy())
+  } catch (err: any) {
+    const msg = err?.statusCode === 409
+      ? '\r\nContainer is not running.\r\n'
+      : '\r\nFailed to start shell session.\r\n'
+    if (ws.readyState === 1) ws.send(msg)
+    ws.close()
+  }
+}
+
+;(app.server as HttpServer).on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+  const match = request.url?.match(EXEC_PATH)
+  if (!match) { socket.destroy(); return }
+
+  // Validate Origin to prevent cross-site WebSocket hijacking
+  const origin = request.headers.origin ?? ''
+  if (origin) {
+    try {
+      const { hostname } = new URL(origin)
+      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n')
+        socket.destroy()
+        return
+      }
+    } catch {
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n')
+      socket.destroy()
+      return
+    }
+  }
+
+  wss.handleUpgrade(request, socket, head, (ws) => handleExecConnection(ws, match[1]))
+})
