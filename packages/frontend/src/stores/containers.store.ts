@@ -109,6 +109,18 @@ export const useContainersStore = defineStore('containers', () => {
     }
   }
 
+  async function restartContainer(id: string) {
+    actionLoading.value[id] = true
+    try {
+      await api.containers.restart(id)
+      await fetchContainers()
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      delete actionLoading.value[id]
+    }
+  }
+
   const groupLoading = ref<Record<string, boolean>>({})
 
   async function removeGroup(name: string) {
@@ -170,5 +182,5 @@ export const useContainersStore = defineStore('containers', () => {
       .join('\n') || `No ${severity.toUpperCase()} lines found.`
   }
 
-  return { containers, loading, error, actionLoading, containerLogs, logsVisible, logsSeverity, running, stopped, groupedContainers, expandedGroups, groupLoading, toggleGroup, isGroupExpanded, fetchContainers, startContainer, stopContainer, pullRecreateContainer, removeContainer, removeGroup, toggleLogs, setLogsSeverity, getFilteredLogs }
+  return { containers, loading, error, actionLoading, containerLogs, logsVisible, logsSeverity, running, stopped, groupedContainers, expandedGroups, groupLoading, toggleGroup, isGroupExpanded, fetchContainers, startContainer, stopContainer, restartContainer, pullRecreateContainer, removeContainer, removeGroup, toggleLogs, setLogsSeverity, getFilteredLogs }
 })

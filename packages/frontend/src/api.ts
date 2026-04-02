@@ -54,6 +54,7 @@ export const api = {
     list: () => request<Container[]>('/containers'),
     start: (id: string) => request<{ success: boolean }>(`/containers/${id}/start`, { method: 'POST' }),
     stop: (id: string) => request<{ success: boolean }>(`/containers/${id}/stop`, { method: 'POST' }),
+    restart: (id: string) => request<{ success: boolean }>(`/containers/${id}/restart`, { method: 'POST' }),
     pullRecreate: (id: string) => request<{ success: boolean }>(`/containers/${id}/pull-recreate`, { method: 'POST' }),
     logs: (id: string) => request<{ logs: string }>(`/containers/${id}/logs`),
     remove: (id: string) => request<{ success: boolean }>(`/containers/${id}`, { method: 'DELETE' }),

@@ -153,6 +153,11 @@ export async function stopContainer(id: string): Promise<void> {
   await container.stop()
 }
 
+export async function restartContainer(id: string): Promise<void> {
+  const container = docker.getContainer(id)
+  await container.restart()
+}
+
 export async function getContainerLogs(id: string, tail: number = 50): Promise<string> {
   const container = docker.getContainer(id)
   const logs = await container.logs({

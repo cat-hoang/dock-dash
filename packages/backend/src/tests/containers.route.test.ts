@@ -8,13 +8,14 @@ vi.mock('../../src/services/docker.service.js', () => ({
   listContainers: vi.fn(),
   startContainer: vi.fn(),
   stopContainer: vi.fn(),
+  restartContainer: vi.fn(),
   pullAndRecreate: vi.fn(),
   getContainerLogs: vi.fn(),
   removeContainer: vi.fn(),
   removeContainers: vi.fn(),
 }))
 
-import { listContainers, startContainer, stopContainer, pullAndRecreate, getContainerLogs, removeContainer, removeContainers } from '../../src/services/docker.service.js'
+import { listContainers, startContainer, stopContainer, restartContainer, pullAndRecreate, getContainerLogs, removeContainer, removeContainers } from '../../src/services/docker.service.js'
 
 const mockContainers = [
   {
@@ -140,6 +141,44 @@ describe('containers route', () => {
 
   it('POST /:id/stop rejects invalid container ID', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/containers/ZZZINVALID!!/stop' })
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  // ── POST /:id/restart ─────────────────────────────────────────
+
+  it('POST /:id/restart restarts a container', async () => {
+    vi.mocked(restartContainer).mockResolvedValue()
+
+    const res = await app.inject({ method: 'POST', url: '/api/containers/abc123def456/restart' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ success: true })
+    expect(restartContainer).toHaveBeenCalledWith('abc123def456')
+  })
+
+  it('POST /:id/restart returns 404 for missing container', async () => {
+    const err = new Error('not found') as any
+    err.statusCode = 404
+    vi.mocked(restartContainer).mockRejectedValue(err)
+
+    const res = await app.inject({ method: 'POST', url: '/api/containers/abc123def456/restart' })
+
+    expect(res.statusCode).toBe(404)
+    expect(res.json().error).toBe('Container not found')
+  })
+
+  it('POST /:id/restart returns 500 on failure', async () => {
+    vi.mocked(restartContainer).mockRejectedValue(new Error('restart failed'))
+
+    const res = await app.inject({ method: 'POST', url: '/api/containers/abc123def456/restart' })
+
+    expect(res.statusCode).toBe(500)
+    expect(res.json().error).toBe('Failed to restart container')
+  })
+
+  it('POST /:id/restart rejects invalid container ID', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/containers/INVALID!!/restart' })
 
     expect(res.statusCode).toBe(400)
   })

@@ -65,6 +65,15 @@ function formatCreated(ts: number) {
           Stop
         </button>
         <button
+          v-if="container.status === 'running' && !container.isSelf"
+          class="btn btn-sm"
+          :disabled="isLoading()"
+          @click="store.restartContainer(container.id)"
+        >
+          <span v-if="isLoading()" class="spinner"></span>
+          Restart
+        </button>
+        <button
           v-if="!container.isSelf"
           class="btn btn-sm btn-blue"
           :disabled="isLoading()"
