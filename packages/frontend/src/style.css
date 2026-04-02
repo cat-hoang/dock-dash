@@ -301,6 +301,36 @@ header h1 span {
   color: var(--text-muted);
 }
 
+/* Shell terminal */
+.terminal-row td {
+  padding: 0 !important;
+}
+
+.terminal-panel {
+  border-top: 1px solid var(--border);
+}
+
+.terminal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.terminal-title {
+  font-size: 11px;
+  color: #8b949e;
+  font-family: monospace;
+}
+
+.terminal-body {
+  padding: 4px;
+  background: #0d1117;
+  height: 300px;
+}
+
 .spinner {
   display: inline-block;
   width: 16px;

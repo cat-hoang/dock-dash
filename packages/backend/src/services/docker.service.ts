@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import type { Duplex } from 'node:stream'
 import Dockerode from 'dockerode'
 
 /**
@@ -237,4 +238,21 @@ export async function removeContainers(ids: string[]): Promise<void> {
   for (const id of ids) {
     await removeContainer(id)
   }
+}
+
+export async function startExecStream(id: string): Promise<{ stream: Duplex; exec: Dockerode.Exec }> {
+  const container = docker.getContainer(id)
+  const info = await container.inspect()
+  if (!info.State.Running) {
+    throw Object.assign(new Error('Container is not running'), { statusCode: 409 })
+  }
+  const exec = await container.exec({
+    AttachStdin: true,
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: true,
+    Cmd: ['/bin/sh'],
+  })
+  const stream = await exec.start({ hijack: true, stdin: true }) as unknown as Duplex
+  return { stream, exec }
 }

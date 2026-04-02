@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { Container } from '../api'
 import { useContainersStore } from '../stores/containers.store'
+import ContainerTerminal from './ContainerTerminal.vue'
 
 const props = defineProps<{ container: Container; nested?: boolean }>()
 const store = useContainersStore()
+
+const showShell = ref(false)
 
 const isLoading = () => !!store.actionLoading[props.container.id]
 const showLogs = () => !!store.logsVisible[props.container.id]
@@ -91,6 +95,13 @@ function formatCreated(ts: number) {
           {{ showLogs() ? 'Hide Logs' : 'Logs' }}
         </button>
         <button
+          v-if="container.status === 'running'"
+          class="btn btn-sm"
+          @click="showShell = !showShell"
+        >
+          {{ showShell ? 'Close Shell' : 'Shell' }}
+        </button>
+        <button
           v-if="!container.isSelf"
           class="btn btn-sm btn-red"
           :disabled="isLoading()"
@@ -116,6 +127,11 @@ function formatCreated(ts: number) {
         </button>
       </div>
       <pre class="container-logs">{{ store.getFilteredLogs(container.id) || 'No logs available.' }}</pre>
+    </td>
+  </tr>
+  <tr v-if="showShell" class="terminal-row">
+    <td colspan="6" style="padding: 0">
+      <ContainerTerminal :container-id="container.id" @close="showShell = false" />
     </td>
   </tr>
 </template>

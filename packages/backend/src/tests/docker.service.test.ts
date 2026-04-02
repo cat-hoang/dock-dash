@@ -1,5 +1,35 @@
-import { describe, it, expect } from 'vitest'
-import { deduplicatePorts } from '../services/docker.service.js'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const { mockExec, mockContainer, mockDockerClient } = vi.hoisted(() => {
+  const hoistedMockExec = {
+    start: vi.fn(),
+    resize: vi.fn(),
+  }
+
+  const hoistedMockContainer = {
+    inspect: vi.fn(),
+    exec: vi.fn(),
+  }
+
+  const hoistedMockDockerClient = {
+    getContainer: vi.fn(() => hoistedMockContainer),
+    listContainers: vi.fn(),
+  }
+
+  return {
+    mockExec: hoistedMockExec,
+    mockContainer: hoistedMockContainer,
+    mockDockerClient: hoistedMockDockerClient,
+  }
+})
+
+vi.mock('dockerode', () => ({
+  default: vi.fn(function MockDockerode() {
+    return mockDockerClient
+  }),
+}))
+
+import { deduplicatePorts, startExecStream } from '../services/docker.service.js'
 import type { PortBinding } from '../services/docker.service.js'
 
 function port(overrides: Partial<PortBinding> = {}): PortBinding {
@@ -77,5 +107,42 @@ describe('deduplicatePorts', () => {
 
   it('returns empty array for empty input', () => {
     expect(deduplicatePorts([])).toEqual([])
+  })
+})
+
+describe('startExecStream', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('creates an interactive tty exec stream for running container', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    mockContainer.exec.mockResolvedValue(mockExec)
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456')
+
+    expect(mockDockerClient.getContainer).toHaveBeenCalledWith('abc123def456')
+    expect(mockContainer.exec).toHaveBeenCalledWith({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: ['/bin/sh'],
+    })
+    expect(mockExec.start).toHaveBeenCalledWith({ hijack: true, stdin: true })
+    expect(result).toEqual({ stream: fakeStream, exec: mockExec })
+  })
+
+  it('throws 409 when container is not running', async () => {
+    mockContainer.inspect.mockResolvedValue({ State: { Running: false } })
+
+    const err = await startExecStream('abc123def456').catch((e) => e)
+
+    expect(err).toBeInstanceOf(Error)
+    expect(err.message).toBe('Container is not running')
+    expect(err.statusCode).toBe(409)
+    expect(mockContainer.exec).not.toHaveBeenCalled()
   })
 })
