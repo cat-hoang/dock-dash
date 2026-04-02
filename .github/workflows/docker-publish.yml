@@ -85,7 +85,6 @@ jobs:
     needs: [changes, test-backend, test-frontend]
     if: github.event_name == 'push' && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true')
     runs-on: ubuntu-latest
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
