@@ -9,6 +9,7 @@ vi.mock('../api', () => ({
       list: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
+      restart: vi.fn(),
       pullRecreate: vi.fn(),
       logs: vi.fn(),
       remove: vi.fn(),
@@ -108,6 +109,26 @@ describe('containersStore', () => {
 
     expect(api.containers.stop).toHaveBeenCalledWith('abc123')
     expect(api.containers.list).toHaveBeenCalled()
+  })
+
+  it('restarts a container and refreshes', async () => {
+    vi.mocked(api.containers.list).mockResolvedValue(mockContainers)
+    vi.mocked(api.containers.restart).mockResolvedValue({ success: true })
+
+    const store = useContainersStore()
+    await store.restartContainer('abc123')
+
+    expect(api.containers.restart).toHaveBeenCalledWith('abc123')
+    expect(api.containers.list).toHaveBeenCalled()
+  })
+
+  it('sets error when restart fails', async () => {
+    vi.mocked(api.containers.restart).mockRejectedValue(new Error('restart failed'))
+
+    const store = useContainersStore()
+    await store.restartContainer('abc123')
+
+    expect(store.error).toBe('restart failed')
   })
 
   it('pulls and recreates a container and refreshes', async () => {
