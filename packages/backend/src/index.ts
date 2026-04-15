@@ -12,6 +12,7 @@ import { containersRoute } from './routes/containers.route.js'
 import { settingsRoute } from './routes/settings.route.js'
 import { composeRoute } from './routes/compose.route.js'
 import { startExecStream } from './services/docker.service.js'
+import { getSettings } from './services/settings.service.js'
 
 const isProd = process.env.NODE_ENV === 'production'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -69,7 +70,8 @@ const wss = new WebSocketServer({ noServer: true })
 async function handleExecConnection(ws: WebSocket, containerId: string): Promise<void> {
   let stream: Duplex | undefined
   try {
-    const result = await startExecStream(containerId)
+    const { shellCommand } = getSettings()
+    const result = await startExecStream(containerId, { shellCommand: shellCommand || undefined })
     stream = result.stream
     const exec = result.exec
 
@@ -95,7 +97,9 @@ async function handleExecConnection(ws: WebSocket, containerId: string): Promise
   } catch (err: any) {
     const msg = err?.statusCode === 409
       ? '\r\nContainer is not running.\r\n'
-      : '\r\nFailed to start shell session.\r\n'
+      : err?.statusCode === 404
+        ? '\r\nNo compatible shell found in this container. Set a custom shell command in Settings.\r\n'
+        : '\r\nFailed to start shell session.\r\n'
     if (ws.readyState === 1) ws.send(msg)
     ws.close()
   }
