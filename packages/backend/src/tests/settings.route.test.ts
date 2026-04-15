@@ -30,19 +30,19 @@ describe('settings route', () => {
   // ── GET / ──────────────────────────────────────────────────────
 
   it('GET / returns current settings', async () => {
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/apps' })
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/apps', shellCommand: '' })
 
     const res = await app.inject({ method: 'GET', url: '/api/settings' })
 
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ composeFolder: '/apps' })
+    expect(res.json()).toEqual({ composeFolder: '/apps', shellCommand: '' })
   })
 
   // ── POST / ─────────────────────────────────────────────────────
 
   it('POST / saves and returns updated settings', async () => {
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '' })
-    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/new/path' })
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/new/path', shellCommand: '' })
 
     const res = await app.inject({
       method: 'POST',
@@ -51,13 +51,13 @@ describe('settings route', () => {
     })
 
     expect(res.statusCode).toBe(200)
-    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/new/path' })
-    expect(res.json()).toEqual({ composeFolder: '/new/path' })
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/new/path', shellCommand: '' })
+    expect(res.json()).toEqual({ composeFolder: '/new/path', shellCommand: '' })
   })
 
   it('POST / strips unknown properties (additionalProperties: false)', async () => {
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '' })
-    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/ok' })
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/ok', shellCommand: '' })
 
     const res = await app.inject({
       method: 'POST',
@@ -67,7 +67,7 @@ describe('settings route', () => {
 
     // Fastify's default Ajv config strips additional properties rather than rejecting
     expect(res.statusCode).toBe(200)
-    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/ok' })
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/ok', shellCommand: '' })
   })
 
   it('POST / coerces numeric composeFolder to string then rejects (not absolute path)', async () => {
@@ -93,8 +93,8 @@ describe('settings route', () => {
   })
 
   it('POST / accepts empty body (partial update)', async () => {
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/existing' })
-    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/existing' })
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/existing', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/existing', shellCommand: '' })
 
     const res = await app.inject({
       method: 'POST',
@@ -103,7 +103,7 @@ describe('settings route', () => {
     })
 
     expect(res.statusCode).toBe(200)
-    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/existing' })
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '/existing', shellCommand: '' })
   })
 
   // ── Path traversal prevention (SEC-003) ────────────────────────
@@ -146,8 +146,8 @@ describe('settings route', () => {
   })
 
   it('POST / accepts empty string composeFolder (clears setting)', async () => {
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/old' })
-    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '' })
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '/old', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
 
     const res = await app.inject({
       method: 'POST',
@@ -173,8 +173,8 @@ describe('settings route', () => {
 
   it('POST / accepts path inside COMPOSE_BASE_DIR', async () => {
     process.env.COMPOSE_BASE_DIR = '/allowed/base'
-    vi.mocked(getSettings).mockReturnValue({ composeFolder: '' })
-    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/allowed/base/projects' })
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '/allowed/base/projects', shellCommand: '' })
 
     const res = await app.inject({
       method: 'POST',
@@ -183,5 +183,45 @@ describe('settings route', () => {
     })
 
     expect(res.statusCode).toBe(200)
+  })
+
+  // ── shellCommand field ─────────────────────────────────────────
+
+  it('POST / accepts shellCommand with a valid custom path', async () => {
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '', shellCommand: '/bin/zsh' })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { shellCommand: '/bin/zsh' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '', shellCommand: '/bin/zsh' })
+  })
+
+  it('POST / rejects shellCommand exceeding max length (256 chars)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { shellCommand: '/bin/' + 'a'.repeat(252) },
+    })
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('POST / accepts empty shellCommand (clears override, re-enables auto-detect)', async () => {
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '/bin/zsh' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { shellCommand: '' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '', shellCommand: '' })
   })
 })

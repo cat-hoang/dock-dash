@@ -37,6 +37,7 @@ export async function settingsRoute(app: FastifyInstance) {
           type: 'object',
           properties: {
             composeFolder: { type: 'string', minLength: 0, maxLength: 512 },
+            shellCommand: { type: 'string', minLength: 0, maxLength: 256 },
           },
           additionalProperties: false,
         },

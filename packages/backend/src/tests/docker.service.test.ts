@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockExec, mockContainer, mockDockerClient } = vi.hoisted(() => {
+const { mockExec, mockProbeExec, mockContainer, mockDockerClient } = vi.hoisted(() => {
+  const hoistedMockProbeExec = {
+    start: vi.fn(),
+    inspect: vi.fn(),
+  }
+
   const hoistedMockExec = {
     start: vi.fn(),
     resize: vi.fn(),
+    inspect: vi.fn(),
   }
 
   const hoistedMockContainer = {
@@ -17,6 +23,7 @@ const { mockExec, mockContainer, mockDockerClient } = vi.hoisted(() => {
   }
 
   return {
+    mockProbeExec: hoistedMockProbeExec,
     mockExec: hoistedMockExec,
     mockContainer: hoistedMockContainer,
     mockDockerClient: hoistedMockDockerClient,
@@ -115,24 +122,31 @@ describe('startExecStream', () => {
     vi.clearAllMocks()
   })
 
-  it('creates an interactive tty exec stream for running container', async () => {
+  it('creates an interactive tty exec stream for running container (auto-detects /bin/bash)', async () => {
     const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
     mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
-    mockContainer.exec.mockResolvedValue(mockExec)
+    // First call: probe for /bin/bash (succeeds)
+    // Second call: interactive exec
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)
+      .mockResolvedValueOnce(mockExec)
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
     mockExec.start.mockResolvedValue(fakeStream)
 
     const result = await startExecStream('abc123def456')
 
     expect(mockDockerClient.getContainer).toHaveBeenCalledWith('abc123def456')
-    expect(mockContainer.exec).toHaveBeenCalledWith({
+    // The interactive exec should use /bin/bash (first candidate that succeeded)
+    expect(mockContainer.exec).toHaveBeenLastCalledWith({
       AttachStdin: true,
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
-      Cmd: ['/bin/sh'],
+      Cmd: ['/bin/bash'],
     })
     expect(mockExec.start).toHaveBeenCalledWith({ hijack: true, stdin: true })
-    expect(result).toEqual({ stream: fakeStream, exec: mockExec })
+    expect(result).toEqual({ stream: fakeStream, exec: mockExec, shell: '/bin/bash' })
   })
 
   it('throws 409 when container is not running', async () => {
@@ -144,5 +158,149 @@ describe('startExecStream', () => {
     expect(err.message).toBe('Container is not running')
     expect(err.statusCode).toBe(409)
     expect(mockContainer.exec).not.toHaveBeenCalled()
+  })
+
+  it('probeShell returns true when exec exits with code 0', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)
+      .mockResolvedValueOnce(mockExec)
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456')
+    // /bin/bash probe succeeded → used as shell
+    expect(result.shell).toBe('/bin/bash')
+  })
+
+  it('probeShell returns false when exec exits with non-zero code', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // /bin/bash probe fails (exit 127), /bin/sh probe succeeds, then interactive
+    const mockProbeExecSh = { start: vi.fn(), inspect: vi.fn() }
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)      // /bin/bash probe
+      .mockResolvedValueOnce(mockProbeExecSh)    // /bin/sh probe
+      .mockResolvedValueOnce(mockExec)           // interactive
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 127 })
+    mockProbeExecSh.start.mockResolvedValue(undefined)
+    mockProbeExecSh.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456')
+    // /bin/bash failed, fell through to /bin/sh
+    expect(result.shell).toBe('/bin/sh')
+  })
+
+  it('probeShell returns false when exec throws', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // /bin/bash probe throws, /bin/sh probe succeeds, then interactive
+    const mockProbeExecSh = { start: vi.fn(), inspect: vi.fn() }
+    mockContainer.exec
+      .mockRejectedValueOnce(new Error('exec failed'))  // /bin/bash probe throws
+      .mockResolvedValueOnce(mockProbeExecSh)           // /bin/sh probe
+      .mockResolvedValueOnce(mockExec)                  // interactive
+    mockProbeExecSh.start.mockResolvedValue(undefined)
+    mockProbeExecSh.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456')
+    // /bin/bash threw, fell through to /bin/sh
+    expect(result.shell).toBe('/bin/sh')
+  })
+
+  it('startExecStream uses first available shell from candidates', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // /bin/bash probe exits 127, /bin/sh probe exits 0
+    const mockProbeExecSh = { start: vi.fn(), inspect: vi.fn() }
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)    // /bin/bash probe
+      .mockResolvedValueOnce(mockProbeExecSh)  // /bin/sh probe
+      .mockResolvedValueOnce(mockExec)         // interactive
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 127 })
+    mockProbeExecSh.start.mockResolvedValue(undefined)
+    mockProbeExecSh.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456')
+
+    // Interactive exec should use /bin/sh (first candidate that succeeded)
+    expect(mockContainer.exec).toHaveBeenLastCalledWith({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: ['/bin/sh'],
+    })
+    expect(result.shell).toBe('/bin/sh')
+  })
+
+  it('startExecStream uses shellCommand override when provided (no probe calls)', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // With override, only one exec call (no probes)
+    mockContainer.exec.mockResolvedValueOnce(mockExec)
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456', { shellCommand: '/bin/zsh' })
+
+    // Should call exec only once (no probe), with the provided shell
+    expect(mockContainer.exec).toHaveBeenCalledTimes(1)
+    expect(mockContainer.exec).toHaveBeenCalledWith({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: ['/bin/zsh'],
+    })
+    expect(result.shell).toBe('/bin/zsh')
+  })
+
+  it('startExecStream throws 404 when no shell is found', async () => {
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // All three candidate probes fail
+    const mockProbeExecSh = { start: vi.fn(), inspect: vi.fn() }
+    const mockProbeExecShBare = { start: vi.fn(), inspect: vi.fn() }
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)          // /bin/bash probe
+      .mockResolvedValueOnce(mockProbeExecSh)        // /bin/sh probe
+      .mockResolvedValueOnce(mockProbeExecShBare)    // sh probe
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 127 })
+    mockProbeExecSh.start.mockResolvedValue(undefined)
+    mockProbeExecSh.inspect.mockResolvedValue({ Running: false, ExitCode: 127 })
+    mockProbeExecShBare.start.mockResolvedValue(undefined)
+    mockProbeExecShBare.inspect.mockResolvedValue({ Running: false, ExitCode: 127 })
+
+    const err = await startExecStream('abc123def456').catch((e) => e)
+
+    expect(err).toBeInstanceOf(Error)
+    expect(err.statusCode).toBe(404)
+    // No interactive exec should have been started
+    expect(mockExec.start).not.toHaveBeenCalled()
+  })
+
+  it('whitespace-only shellCommand is treated as empty (triggers auto-detection)', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // Whitespace should NOT skip probing — same two-call flow as auto-detect
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)
+      .mockResolvedValueOnce(mockExec)
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456', { shellCommand: '   ' })
+
+    // Two exec calls: one probe, one interactive (whitespace treated as no override)
+    expect(mockContainer.exec).toHaveBeenCalledTimes(2)
+    expect(result.shell).toBe('/bin/bash')
   })
 })

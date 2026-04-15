@@ -7,10 +7,12 @@ const SETTINGS_FILE = path.join(__dirname, '../../data/settings.json')
 
 export interface Settings {
   composeFolder: string
+  shellCommand: string   // '' = auto-detect
 }
 
 const DEFAULT_SETTINGS: Settings = {
   composeFolder: '',
+  shellCommand: '',
 }
 
 function ensureDataDir() {

@@ -41,6 +41,7 @@ export interface ContainerGroup {
 
 export interface Settings {
   composeFolder: string
+  shellCommand: string
 }
 
 export interface ComposeFile {

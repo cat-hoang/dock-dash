@@ -240,19 +240,88 @@ export async function removeContainers(ids: string[]): Promise<void> {
   }
 }
 
-export async function startExecStream(id: string): Promise<{ stream: Duplex; exec: Dockerode.Exec }> {
+/** Ordered list of shell candidates to try during auto-detection. */
+const SHELL_CANDIDATES = ['/bin/bash', '/bin/sh', 'sh']
+
+/**
+ * Probe whether a given shell binary exists and is executable inside a container.
+ * Runs `<shell> -c 'exit 0'` as a detached exec and checks the exit code.
+ * Returns true if the shell exits with code 0 or is still running after the
+ * 500ms deadline (which means it started successfully and is awaiting input).
+ */
+async function probeShell(container: Dockerode.Container, shell: string): Promise<boolean> {
+  try {
+    const exec = await container.exec({
+      AttachStdin: false,
+      AttachStdout: false,
+      AttachStderr: false,
+      Tty: false,
+      Cmd: [shell, '-c', 'exit 0'],
+    })
+    // Detach: true starts the exec without attaching a stream, avoiding stream leaks
+    await exec.start({ Detach: true })
+    // Poll until the process exits or timeout
+    const deadline = Date.now() + 500
+    while (Date.now() < deadline) {
+      const info = await exec.inspect()
+      if (!info.Running) return info.ExitCode === 0
+      await new Promise(r => setTimeout(r, 50))
+    }
+    // Still running after 500ms → the shell is live (treat as available)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Detect the first available shell from SHELL_CANDIDATES.
+ * Returns the shell path if found, or null if none are available.
+ */
+async function detectShell(container: Dockerode.Container): Promise<string | null> {
+  for (const shell of SHELL_CANDIDATES) {
+    if (await probeShell(container, shell)) {
+      return shell
+    }
+  }
+  return null
+}
+
+export async function startExecStream(
+  id: string,
+  options?: { shellCommand?: string },
+): Promise<{ stream: Duplex; exec: Dockerode.Exec; shell: string }> {
   const container = docker.getContainer(id)
   const info = await container.inspect()
   if (!info.State.Running) {
     throw Object.assign(new Error('Container is not running'), { statusCode: 409 })
   }
+
+  // Determine which shell to use: explicit override > auto-detection
+  let shell: string
+  const override = options?.shellCommand?.trim()
+  if (override) {
+    // User-configured shell: skip probing and use it directly
+    shell = override
+  } else {
+    // Auto-detect: try candidates in order
+    const detected = await detectShell(container)
+    if (!detected) {
+      throw Object.assign(
+        new Error('No compatible shell found in container'),
+        { statusCode: 404 },
+      )
+    }
+    shell = detected
+  }
+
   const exec = await container.exec({
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
     Tty: true,
-    Cmd: ['/bin/sh'],
+    Cmd: [shell],
   })
   const stream = await exec.start({ hijack: true, stdin: true }) as unknown as Duplex
-  return { stream, exec }
+  return { stream, exec, shell }
 }
