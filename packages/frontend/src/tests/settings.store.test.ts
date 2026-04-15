@@ -18,7 +18,7 @@ describe('settingsStore', () => {
   })
 
   it('fetches settings', async () => {
-    vi.mocked(api.settings.get).mockResolvedValue({ composeFolder: '/home/user/apps' })
+    vi.mocked(api.settings.get).mockResolvedValue({ composeFolder: '/home/user/apps', shellCommand: '' })
 
     const store = useSettingsStore()
     await store.fetchSettings()
@@ -28,7 +28,7 @@ describe('settingsStore', () => {
   })
 
   it('saves settings and updates state', async () => {
-    const updated = { composeFolder: '/new/path' }
+    const updated = { composeFolder: '/new/path', shellCommand: '' }
     vi.mocked(api.settings.save).mockResolvedValue(updated)
 
     const store = useSettingsStore()

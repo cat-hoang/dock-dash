@@ -6,11 +6,13 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 
 const store = useSettingsStore()
 const folder = ref(store.settings.composeFolder)
+const shellCommand = ref(store.settings.shellCommand)
 
 watch(() => store.settings.composeFolder, (v) => { folder.value = v })
+watch(() => store.settings.shellCommand, (v) => { shellCommand.value = v })
 
 async function save() {
-  const ok = await store.saveSettings({ composeFolder: folder.value })
+  const ok = await store.saveSettings({ composeFolder: folder.value, shellCommand: shellCommand.value })
   if (ok) emit('close')
 }
 </script>
@@ -31,6 +33,19 @@ async function save() {
         />
         <div style="margin-top:6px; font-size:11px; color:var(--text-muted)">
           All subfolders will be scanned for <code>docker-compose.yml</code> files.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Shell Command</label>
+        <input
+          v-model="shellCommand"
+          type="text"
+          placeholder="/bin/bash"
+        />
+        <div style="margin-top:6px; font-size:11px; color:var(--text-muted)">
+          Shell to use for the interactive terminal. Leave empty to auto-detect
+          (<code>/bin/bash</code>, <code>/bin/sh</code>, <code>sh</code>).
         </div>
       </div>
 

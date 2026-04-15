@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { api, type Settings } from '../api'
 
 export const useSettingsStore = defineStore('settings', () => {
-  const settings = ref<Settings>({ composeFolder: '' })
+  const settings = ref<Settings>({ composeFolder: '', shellCommand: '' })
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
