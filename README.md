@@ -9,7 +9,11 @@ Built with **Vue 3 + Vite** (frontend) and **Fastify + Dockerode** (backend) in 
 ## Features
 
 - **Live container list** — all running and stopped containers, auto-refreshed every 10 seconds
-- **Start / Stop** containers directly from the UI
+- **Start / Stop / Restart** containers directly from the UI
+- **Update container** — pull the latest image and recreate the container in one click
+- **Remove containers** — delete individual containers or remove an entire Compose group at once
+- **Container logs** — view recent log output with severity filtering (error / warn / info / debug)
+- **Shell / terminal** — open an interactive shell inside any running container
 - **Port display** — mapped host ports highlighted, unmapped container ports shown dimly
 - **Compose awareness** — shows the Docker Compose project and service for each container
 - **Search & filter** — search by name, image, or project; filter by All / Running / Stopped
@@ -28,14 +32,15 @@ dock-dash/
     │   └── src/
     │       ├── index.ts
     │       ├── routes/           ← containers, settings, compose
-    │       └── services/         ← docker.service, compose.service, settings.service
+    │       ├── services/         ← docker.service, compose.service, settings.service
+    │       └── tests/            ← Vitest unit tests (backend)
     └── frontend/                 ← Vue 3 + Vite SPA (port 5173)
         └── src/
             ├── App.vue
             ├── api.ts
             ├── stores/           ← Pinia stores
-            ├── components/       ← ContainerList, ContainerRow, SettingsModal
-            └── tests/            ← Vitest unit tests
+            ├── components/       ← ContainerList, ContainerRow, ContainerTerminal, SettingsModal
+            └── tests/            ← Vitest unit tests (frontend)
 ```
 
 ---
@@ -88,15 +93,20 @@ Settings are persisted to `packages/backend/data/settings.json`.
 
 ## API Endpoints
 
-| Method | Path                        | Description                          |
-|--------|-----------------------------|--------------------------------------|
-| GET    | `/api/containers`           | List all containers (running + stopped) |
-| POST   | `/api/containers/:id/start` | Start a container                    |
-| POST   | `/api/containers/:id/stop`  | Stop a container                     |
-| GET    | `/api/settings`             | Get current settings                 |
-| POST   | `/api/settings`             | Update settings                      |
-| GET    | `/api/compose`              | List discovered compose files        |
-| GET    | `/api/health`               | Health check                         |
+| Method | Path                              | Description                                   |
+|--------|-----------------------------------|-----------------------------------------------|
+| GET    | `/api/containers`                 | List all containers (running + stopped)       |
+| POST   | `/api/containers/:id/start`       | Start a container                             |
+| POST   | `/api/containers/:id/stop`        | Stop a container                              |
+| POST   | `/api/containers/:id/restart`     | Restart a container                           |
+| POST   | `/api/containers/:id/pull-recreate` | Pull latest image and recreate a container  |
+| GET    | `/api/containers/:id/logs`        | Get recent log output for a container         |
+| DELETE | `/api/containers/:id`             | Remove a container                            |
+| POST   | `/api/containers/remove-group`    | Remove multiple containers by ID              |
+| GET    | `/api/settings`                   | Get current settings                          |
+| POST   | `/api/settings`                   | Update settings                               |
+| GET    | `/api/compose`                    | List discovered compose files                 |
+| GET    | `/api/health`                     | Health check                                  |
 
 ---
 
@@ -106,7 +116,12 @@ Settings are persisted to `packages/backend/data/settings.json`.
 npm run test
 ```
 
-Runs 15 Vitest unit tests covering the Pinia stores and `ContainerRow` component.
+Runs 122 Vitest unit tests across both packages:
+
+| Package  | Test files | Tests |
+|----------|-----------|-------|
+| frontend | ContainerRow, ContainerTerminal, containers.store, settings.store | 70 |
+| backend  | containers.route, docker.service, settings.route | 52 |
 
 ---
 
