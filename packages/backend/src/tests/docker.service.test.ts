@@ -285,4 +285,22 @@ describe('startExecStream', () => {
     // No interactive exec should have been started
     expect(mockExec.start).not.toHaveBeenCalled()
   })
+
+  it('whitespace-only shellCommand is treated as empty (triggers auto-detection)', async () => {
+    const fakeStream = { write: vi.fn(), on: vi.fn(), destroy: vi.fn() }
+    mockContainer.inspect.mockResolvedValue({ State: { Running: true } })
+    // Whitespace should NOT skip probing — same two-call flow as auto-detect
+    mockContainer.exec
+      .mockResolvedValueOnce(mockProbeExec)
+      .mockResolvedValueOnce(mockExec)
+    mockProbeExec.start.mockResolvedValue(undefined)
+    mockProbeExec.inspect.mockResolvedValue({ Running: false, ExitCode: 0 })
+    mockExec.start.mockResolvedValue(fakeStream)
+
+    const result = await startExecStream('abc123def456', { shellCommand: '   ' })
+
+    // Two exec calls: one probe, one interactive (whitespace treated as no override)
+    expect(mockContainer.exec).toHaveBeenCalledTimes(2)
+    expect(result.shell).toBe('/bin/bash')
+  })
 })

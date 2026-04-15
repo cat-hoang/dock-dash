@@ -184,4 +184,44 @@ describe('settings route', () => {
 
     expect(res.statusCode).toBe(200)
   })
+
+  // ── shellCommand field ─────────────────────────────────────────
+
+  it('POST / accepts shellCommand with a valid custom path', async () => {
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '', shellCommand: '/bin/zsh' })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { shellCommand: '/bin/zsh' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '', shellCommand: '/bin/zsh' })
+  })
+
+  it('POST / rejects shellCommand exceeding max length (256 chars)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { shellCommand: '/bin/' + 'a'.repeat(252) },
+    })
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('POST / accepts empty shellCommand (clears override, re-enables auto-detect)', async () => {
+    vi.mocked(getSettings).mockReturnValue({ composeFolder: '', shellCommand: '/bin/zsh' })
+    vi.mocked(saveSettings).mockReturnValue({ composeFolder: '', shellCommand: '' })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { shellCommand: '' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(saveSettings).toHaveBeenCalledWith({ composeFolder: '', shellCommand: '' })
+  })
 })
